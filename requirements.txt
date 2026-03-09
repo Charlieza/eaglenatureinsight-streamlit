@@ -2,6 +2,7 @@ streamlit
 earthengine-api
 geemap
 folium
+streamlit-folium
 pandas
 matplotlib
 reportlab
