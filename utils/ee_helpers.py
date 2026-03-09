@@ -27,7 +27,7 @@ def initialize_ee_from_secrets(st) -> None:
         key_data=json.dumps(service_account_info),
     )
 
-    ee.Initialize(credentials)
+    ee.Initialize(credentials, project=service_account_info["project_id"])
     initialize_ee_from_secrets._initialized = True
 
 
