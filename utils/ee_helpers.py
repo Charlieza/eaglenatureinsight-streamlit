@@ -1,5 +1,6 @@
 import json
 import ee
+from google.oauth2 import service_account
 
 
 def initialize_ee_from_secrets(st) -> None:
@@ -22,12 +23,12 @@ def initialize_ee_from_secrets(st) -> None:
         "universe_domain": ee_secret["universe_domain"],
     }
 
-    credentials = ee.ServiceAccountCredentials(
-        service_account_info["client_email"],
-        key_data=json.dumps(service_account_info),
+    credentials = service_account.Credentials.from_service_account_info(
+        service_account_info,
+        scopes=["https://www.googleapis.com/auth/earthengine"]
     )
 
-    ee.Initialize(credentials, project=service_account_info["project_id"])
+    ee.Initialize(credentials=credentials, project=service_account_info["project_id"])
     initialize_ee_from_secrets._initialized = True
 
 
