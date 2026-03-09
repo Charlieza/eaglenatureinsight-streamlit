@@ -6,9 +6,21 @@ def initialize_ee_from_secrets(st) -> None:
     if getattr(initialize_ee_from_secrets, "_initialized", False):
         return
 
-    service_account_info = json.loads(
-        st.secrets["earthengine"]["service_account_json"]
-    )
+    ee_secret = st.secrets["earthengine"]
+
+    service_account_info = {
+        "type": ee_secret["type"],
+        "project_id": ee_secret["project_id"],
+        "private_key_id": ee_secret["private_key_id"],
+        "private_key": ee_secret["private_key"],
+        "client_email": ee_secret["client_email"],
+        "client_id": ee_secret["client_id"],
+        "auth_uri": ee_secret["auth_uri"],
+        "token_uri": ee_secret["token_uri"],
+        "auth_provider_x509_cert_url": ee_secret["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": ee_secret["client_x509_cert_url"],
+        "universe_domain": ee_secret["universe_domain"],
+    }
 
     credentials = ee.ServiceAccountCredentials(
         service_account_info["client_email"],
