@@ -139,11 +139,11 @@ init_state()
 # --------------------------------------------------
 # HEADER
 # --------------------------------------------------
-header_left, header_right = st.columns([1, 6])
+header_left, header_right = st.columns([2, 6])
 
 with header_left:
     if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width=110)
+        st.image(str(LOGO_PATH), use_container_width=True)
 
 with header_right:
     st.title("EagleNatureInsight™")
