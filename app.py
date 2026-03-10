@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import date
+from io import BytesIO
 
 import pandas as pd
 import plotly.express as px
@@ -81,6 +82,7 @@ def init_state():
         "draw_mode": "Draw polygon",
         "last_drawn_geojson": None,
         "report_payload": None,
+        "results_payload": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -237,6 +239,13 @@ def fmt_num(val, digits=1, suffix=""):
         return "—"
 
 
+def fig_to_png_bytes(fig):
+    try:
+        return BytesIO(fig.to_image(format="png", width=1200, height=650, scale=2))
+    except Exception:
+        return None
+
+
 init_state()
 
 try:
@@ -331,13 +340,13 @@ with hist2:
 
 st.markdown("### Site Selection")
 m = build_map(
-    center=st.session_state.map_center,
-    zoom=st.session_state.map_zoom,
-    draw_mode=st.session_state.draw_mode,
-    lat=st.session_state.lat_input,
-    lon=st.session_state.lon_input,
-    buffer_m=st.session_state.buffer_input,
-    existing_geojson=st.session_state.last_drawn_geojson,
+    center=st.session_state["map_center"],
+    zoom=st.session_state["map_zoom"],
+    draw_mode=st.session_state["draw_mode"],
+    lat=st.session_state["lat_input"],
+    lon=st.session_state["lon_input"],
+    buffer_m=st.session_state["buffer_input"],
+    existing_geojson=st.session_state["last_drawn_geojson"],
 )
 
 map_data = st_folium(
@@ -350,14 +359,14 @@ map_data = st_folium(
 
 drawn_geojson = extract_drawn_geometry(map_data)
 if drawn_geojson is not None:
-    st.session_state.last_drawn_geojson = drawn_geojson
+    st.session_state["last_drawn_geojson"] = drawn_geojson
 
 summary_text, geometry_payload, ee_geom = get_geometry_payload(
-    drawn_geojson=st.session_state.last_drawn_geojson if st.session_state.draw_mode == "Draw polygon" else None,
-    lat=st.session_state.lat_input,
-    lon=st.session_state.lon_input,
-    buffer_m=st.session_state.buffer_input,
-    mode=st.session_state.draw_mode,
+    drawn_geojson=st.session_state["last_drawn_geojson"] if st.session_state["draw_mode"] == "Draw polygon" else None,
+    lat=st.session_state["lat_input"],
+    lon=st.session_state["lon_input"],
+    buffer_m=st.session_state["buffer_input"],
+    mode=st.session_state["draw_mode"],
 )
 
 st.markdown("### Current Selection")
@@ -380,8 +389,8 @@ if run:
         st.warning("Historical start year must be earlier than or equal to end year.")
         st.stop()
 
-    preset = st.session_state.active_preset
-    category = st.session_state.category_selector
+    preset = st.session_state["active_preset"]
+    category = st.session_state["category_selector"]
 
     with st.spinner("Running assessment..."):
         metrics = compute_metrics(
@@ -433,6 +442,49 @@ if run:
             lc_df = lc_df[lc_df["area_ha"].notna()].copy()
             lc_df = lc_df[lc_df["area_ha"] > 0].copy()
 
+        chart_images = {}
+
+        if not ndvi_hist_df.empty:
+            fig_ndvi = px.line(ndvi_hist_df, x="year", y="value", title="Historical NDVI (Landsat)")
+            chart_images["ndvi"] = fig_to_png_bytes(fig_ndvi)
+        else:
+            fig_ndvi = None
+
+        if not rain_hist_df.empty:
+            fig_rain = px.line(rain_hist_df, x="year", y="value", title="Historical Rainfall (CHIRPS)")
+            chart_images["rain"] = fig_to_png_bytes(fig_rain)
+        else:
+            fig_rain = None
+
+        if not lst_hist_df.empty:
+            fig_lst = px.line(lst_hist_df, x="year", y="value", title="Historical Land Surface Temperature (MODIS)")
+            chart_images["lst"] = fig_to_png_bytes(fig_lst)
+        else:
+            fig_lst = None
+
+        if not forest_hist_df.empty:
+            fig_forest = px.bar(forest_hist_df, x="year", y="value", title="Historical Forest Loss by Year (Hansen)")
+            chart_images["forest"] = fig_to_png_bytes(fig_forest)
+        else:
+            fig_forest = None
+
+        if not water_hist_df.empty:
+            fig_water = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)")
+            chart_images["water"] = fig_to_png_bytes(fig_water)
+        else:
+            fig_water = None
+
+        if not lc_df.empty:
+            fig_lc = px.bar(
+                lc_df.sort_values("area_ha", ascending=False),
+                x="class_name",
+                y="area_ha",
+                title="Current Land Cover Composition"
+            )
+            chart_images["landcover"] = fig_to_png_bytes(fig_lc)
+        else:
+            fig_lc = None
+
         pdf_bytes = build_pdf_report(
             preset=preset,
             category=category,
@@ -445,32 +497,62 @@ if run:
             landcover_url=landcover_url,
             forest_loss_url=forest_loss_url,
             vegetation_change_url=veg_change_url,
+            chart_images=chart_images,
         )
 
-        st.session_state.report_payload = {
+        st.session_state["report_payload"] = {
             "pdf_bytes": pdf_bytes,
             "file_name": f"EagleNatureInsight_Report_{date.today().isoformat()}.pdf",
         }
 
+        st.session_state["results_payload"] = {
+            "preset": preset,
+            "category": category,
+            "metrics": metrics,
+            "risk": risk,
+            "satellite_url": satellite_url,
+            "ndvi_url": ndvi_url,
+            "landcover_url": landcover_url,
+            "forest_loss_url": forest_loss_url,
+            "veg_change_url": veg_change_url,
+            "ndvi_hist_df": ndvi_hist_df,
+            "rain_hist_df": rain_hist_df,
+            "lst_hist_df": lst_hist_df,
+            "forest_hist_df": forest_hist_df,
+            "water_hist_df": water_hist_df,
+            "lc_df": lc_df,
+        }
+
     st.success("Assessment complete.")
 
-if st.session_state.report_payload is not None:
+if st.session_state["report_payload"] is not None:
     st.download_button(
         label="Download PDF Report",
-        data=st.session_state.report_payload["pdf_bytes"],
-        file_name=st.session_state.report_payload["file_name"],
+        data=st.session_state["report_payload"]["pdf_bytes"],
+        file_name=st.session_state["report_payload"]["file_name"],
         mime="application/pdf",
         use_container_width=True,
     )
 
-if st.session_state.report_payload is not None and run:
-    pass
+results = st.session_state["results_payload"]
 
-if st.session_state.report_payload is not None:
-    # Recompute display only if latest run was successful and already in session.
-    pass
+if results is not None:
+    preset = results["preset"]
+    category = results["category"]
+    metrics = results["metrics"]
+    risk = results["risk"]
+    satellite_url = results["satellite_url"]
+    ndvi_url = results["ndvi_url"]
+    landcover_url = results["landcover_url"]
+    forest_loss_url = results["forest_loss_url"]
+    veg_change_url = results["veg_change_url"]
+    ndvi_hist_df = results["ndvi_hist_df"]
+    rain_hist_df = results["rain_hist_df"]
+    lst_hist_df = results["lst_hist_df"]
+    forest_hist_df = results["forest_hist_df"]
+    water_hist_df = results["water_hist_df"]
+    lc_df = results["lc_df"]
 
-if run:
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         ["Overview", "LEAP", "Images", "Trends", "Detailed Results"]
     )
@@ -532,6 +614,12 @@ if run:
 
     with tab3:
         st.markdown("## Image outputs")
+
+        st.markdown("### What the colours mean")
+        st.write("**NDVI image:** greener areas usually mean healthier or denser vegetation; redder areas usually mean weaker vegetation.")
+        st.write("**Vegetation change map:** greener areas suggest improvement over time; redder areas suggest decline.")
+        st.write("**Land-cover image:** colours represent different land-cover classes such as tree cover, cropland, built-up land, and water.")
+        st.write("**Forest loss map:** highlighted areas show where forest loss has been detected.")
 
         img1, img2 = st.columns(2)
         with img1:
@@ -600,6 +688,11 @@ if run:
         )
         st.dataframe(detail_df, use_container_width=True)
 
-        if 'lc_df' in locals() and not lc_df.empty:
-            fig = px.pie(lc_df, values="area_ha", names="class_name", title="Current Land Cover Composition")
+        if not lc_df.empty:
+            fig = px.bar(
+                lc_df.sort_values("area_ha", ascending=False),
+                x="class_name",
+                y="area_ha",
+                title="Current Land Cover Composition"
+            )
             st.plotly_chart(fig, use_container_width=True)
