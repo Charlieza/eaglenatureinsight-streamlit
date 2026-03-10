@@ -18,9 +18,14 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 
+PAGE_WIDTH_MM = 210
+LEFT_RIGHT_MARGIN_MM = 16
+USABLE_WIDTH_MM = PAGE_WIDTH_MM - (2 * LEFT_RIGHT_MARGIN_MM)
+
+
 def _download_image(url: str) -> BytesIO | None:
     try:
-        r = requests.get(url, timeout=30)
+        r = requests.get(url, timeout=45)
         r.raise_for_status()
         return BytesIO(r.content)
     except Exception:
@@ -34,6 +39,10 @@ def _fmt(val, digits=2, suffix=""):
         return f"{float(val):.{digits}f}{suffix}"
     except Exception:
         return "—"
+
+
+def _safe_rl_image(img_source, width_mm, height_mm):
+    return Image(img_source, width=width_mm * mm, height=height_mm * mm)
 
 
 def build_pdf_report(
@@ -86,13 +95,21 @@ def build_pdf_report(
         leading=12,
         spaceAfter=4,
     )
+    small_style = ParagraphStyle(
+        "small_style",
+        parent=styles["BodyText"],
+        fontSize=8.5,
+        leading=10.5,
+        textColor=colors.HexColor("#4b5563"),
+        spaceAfter=4,
+    )
 
     story = []
 
     logo_path = Path("assets/logo.png")
     if logo_path.exists():
-        story.append(Image(str(logo_path), width=38 * mm, height=38 * mm))
-        story.append(Spacer(1, 3 * mm))
+        story.append(_safe_rl_image(str(logo_path), width_mm=32, height_mm=32))
+        story.append(Spacer(1, 2 * mm))
 
     story.append(Paragraph("EagleNatureInsight™ Report", title_style))
     story.append(Paragraph(f"Assessment date: {date.today().isoformat()}", body_style))
@@ -131,10 +148,10 @@ def build_pdf_report(
     story.append(summary_table)
     story.append(Spacer(1, 4 * mm))
 
-    story.append(Paragraph("Simple reading guide", h_style))
-    story.append(Paragraph("Green or higher vegetation values usually suggest stronger plant cover. Redder or lower vegetation values can suggest stress or limited vegetation.", body_style))
-    story.append(Paragraph("Rising heat, falling vegetation, or visible tree loss may point to higher environmental pressure around the site.", body_style))
-    story.append(Paragraph("These outputs are for screening and discussion. They help identify where closer review may be useful.", body_style))
+    story.append(Paragraph("Quick reading guide", h_style))
+    story.append(Paragraph("Greener vegetation images usually suggest stronger plant cover. Redder vegetation images usually suggest lower or stressed vegetation.", body_style))
+    story.append(Paragraph("Vegetation change maps use red for decline and green for improvement.", body_style))
+    story.append(Paragraph("These outputs are screening outputs. They help identify where closer review may be useful.", body_style))
 
     story.append(Paragraph("LEAP Outputs", h_style))
     story.append(Paragraph("<b>Locate</b>: The selected area has been defined and checked against land cover and surrounding environmental context.", body_style))
@@ -155,20 +172,39 @@ def build_pdf_report(
     story.append(PageBreak())
 
     image_specs = [
-        ("Satellite image with polygon", satellite_url, "This is a true-colour satellite view of the selected site. The red outline shows the assessment area."),
-        ("NDVI image with polygon", ndvi_url, "This image shows vegetation condition. Greener tones generally mean healthier or denser vegetation. Redder tones suggest weaker vegetation."),
-        ("Land-cover image with polygon", landcover_url, "This image shows the main land-cover types in the selected area, such as tree cover, cropland, built-up land, and water."),
-        ("Vegetation change map with polygon", vegetation_change_url, "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement."),
-        ("Forest loss map with polygon", forest_loss_url, "This image highlights where forest loss has been detected in or around the selected area."),
+        (
+            "Satellite image with polygon",
+            satellite_url,
+            "True-colour satellite view of the selected site. The red outline shows the assessment area."
+        ),
+        (
+            "NDVI image with polygon",
+            ndvi_url,
+            "Greener areas generally mean healthier or denser vegetation. Redder areas suggest weaker vegetation."
+        ),
+        (
+            "Land-cover image with polygon",
+            landcover_url,
+            "Shows the main land-cover types such as tree cover, cropland, built-up land, and water."
+        ),
+        (
+            "Vegetation change map with polygon",
+            vegetation_change_url,
+            "Redder areas suggest vegetation decline over time. Greener areas suggest improvement."
+        ),
+        (
+            "Forest loss map with polygon",
+            forest_loss_url,
+            "Shows areas where forest loss has been detected in or around the selected area."
+        ),
     ]
 
     for title, url, expl in image_specs:
         img_data = _download_image(url)
         if img_data is not None:
             story.append(Paragraph(title, h_style))
-            story.append(Paragraph(expl, body_style))
-            img = Image(img_data, width=170 * mm, height=95 * mm)
-            story.append(img)
+            story.append(Paragraph(expl, small_style))
+            story.append(_safe_rl_image(img_data, width_mm=175, height_mm=98))
             story.append(Spacer(1, 4 * mm))
 
     if chart_images:
@@ -188,7 +224,7 @@ def build_pdf_report(
             img_data = chart_images.get(key)
             if img_data is not None:
                 story.append(Paragraph(title, h_style))
-                story.append(Image(img_data, width=170 * mm, height=95 * mm))
+                story.append(_safe_rl_image(img_data, width_mm=175, height_mm=98))
                 story.append(Spacer(1, 4 * mm))
 
     doc.build(story)
