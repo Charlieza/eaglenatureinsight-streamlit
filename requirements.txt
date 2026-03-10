@@ -1,10 +1,11 @@
 streamlit
 earthengine-api
+matplotlib
 geemap
 folium
 streamlit-folium
 pandas
-matplotlib
-reportlab
 plotly
+reportlab
+requests
 google-auth
