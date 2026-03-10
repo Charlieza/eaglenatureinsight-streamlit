@@ -27,6 +27,7 @@ from utils.ee_helpers import (
     landcover_feature_collection,
 )
 from utils.scoring import build_risk_and_recommendations
+from utils.pdf_report import build_pdf_report
 
 
 st.set_page_config(page_title="EagleNatureInsight", layout="wide")
@@ -79,6 +80,7 @@ def init_state():
         "map_zoom": 5,
         "draw_mode": "Draw polygon",
         "last_drawn_geojson": None,
+        "report_payload": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -431,8 +433,44 @@ if run:
             lc_df = lc_df[lc_df["area_ha"].notna()].copy()
             lc_df = lc_df[lc_df["area_ha"] > 0].copy()
 
+        pdf_bytes = build_pdf_report(
+            preset=preset,
+            category=category,
+            hist_start=int(hist_start),
+            hist_end=int(hist_end),
+            metrics=metrics,
+            risk=risk,
+            satellite_url=satellite_url,
+            ndvi_url=ndvi_url,
+            landcover_url=landcover_url,
+            forest_loss_url=forest_loss_url,
+            vegetation_change_url=veg_change_url,
+        )
+
+        st.session_state.report_payload = {
+            "pdf_bytes": pdf_bytes,
+            "file_name": f"EagleNatureInsight_Report_{date.today().isoformat()}.pdf",
+        }
+
     st.success("Assessment complete.")
 
+if st.session_state.report_payload is not None:
+    st.download_button(
+        label="Download PDF Report",
+        data=st.session_state.report_payload["pdf_bytes"],
+        file_name=st.session_state.report_payload["file_name"],
+        mime="application/pdf",
+        use_container_width=True,
+    )
+
+if st.session_state.report_payload is not None and run:
+    pass
+
+if st.session_state.report_payload is not None:
+    # Recompute display only if latest run was successful and already in session.
+    pass
+
+if run:
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         ["Overview", "LEAP", "Images", "Trends", "Detailed Results"]
     )
