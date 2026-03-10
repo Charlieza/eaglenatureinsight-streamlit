@@ -213,16 +213,26 @@ def prep_year_df(df: pd.DataFrame) -> pd.DataFrame:
     return df.sort_values("year")
 
 
-def metric_card(label: str, value: str):
+def metric_card(label: str, value: str, subtext: str = ""):
     st.markdown(
         f"""
-        <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;">
+        <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;height:110px;">
             <div style="font-size:12px;color:#6b7280;">{label}</div>
-            <div style="font-size:26px;font-weight:700;color:#111827;">{value}</div>
+            <div style="font-size:26px;font-weight:700;color:#111827;margin-top:4px;">{value}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">{subtext}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def fmt_num(val, digits=1, suffix=""):
+    if val is None:
+        return "—"
+    try:
+        return f"{float(val):.{digits}f}{suffix}"
+    except Exception:
+        return "—"
 
 
 init_state()
@@ -432,45 +442,45 @@ if run:
         st.write(f"**Business preset:** {preset}")
         st.write(f"**Business category:** {category}")
 
-        mc1, mc2, mc3 = st.columns(3)
-        with mc1:
-            metric_card("Nature Risk", f'{risk["score"]}/100 ({risk["band"]})')
-        with mc2:
-            metric_card("Current NDVI", f'{metrics.get("ndvi_current", 0):.3f}' if metrics.get("ndvi_current") is not None else "—")
-        with mc3:
-            metric_card("Rainfall Anomaly", f'{metrics.get("rain_anom_pct", 0):.1f}%' if metrics.get("rain_anom_pct") is not None else "—")
+        r1c1, r1c2, r1c3 = st.columns(3)
+        with r1c1:
+            metric_card("Nature Risk", f'{risk["score"]}/100', risk["band"])
+        with r1c2:
+            metric_card("Current NDVI", fmt_num(metrics.get("ndvi_current"), 3), "Sentinel-2")
+        with r1c3:
+            metric_card("Rainfall Anomaly", fmt_num(metrics.get("rain_anom_pct"), 1, "%"), "vs 1981–2010")
 
-        mc4, mc5, mc6 = st.columns(3)
-        with mc4:
-            metric_card("Tree Cover", f'{metrics.get("tree_pct", 0):.1f}%' if metrics.get("tree_pct") is not None else "—")
-        with mc5:
-            metric_card("Built-up", f'{metrics.get("built_pct", 0):.1f}%' if metrics.get("built_pct") is not None else "—")
-        with mc6:
-            metric_card("Surface Water", f'{metrics.get("water_occ", 0):.1f}' if metrics.get("water_occ") is not None else "—")
+        r2c1, r2c2, r2c3 = st.columns(3)
+        with r2c1:
+            metric_card("Tree Cover", fmt_num(metrics.get("tree_pct"), 1, "%"), "Current")
+        with r2c2:
+            metric_card("Built-up", fmt_num(metrics.get("built_pct"), 1, "%"), "Current")
+        with r2c3:
+            metric_card("Surface Water", fmt_num(metrics.get("water_occ"), 1), "Occurrence")
 
     with tab2:
-        st.markdown("## LEAP Outputs")
+        st.markdown("## LEAP outputs")
 
         st.markdown("### Locate")
         st.write("The selected area has been defined and screened for land cover, visible nature context, and surrounding landscape conditions.")
-        st.write(f'Area of interest: {metrics.get("area_ha", 0):.1f} ha' if metrics.get("area_ha") is not None else "Area of interest: —")
-        st.write(f'Tree cover: {metrics.get("tree_pct", 0):.1f}%' if metrics.get("tree_pct") is not None else "Tree cover: —")
-        st.write(f'Cropland: {metrics.get("cropland_pct", 0):.1f}%' if metrics.get("cropland_pct") is not None else "Cropland: —")
-        st.write(f'Built-up: {metrics.get("built_pct", 0):.1f}%' if metrics.get("built_pct") is not None else "Built-up: —")
-        st.write(f'Surface water occurrence: {metrics.get("water_occ", 0):.1f}' if metrics.get("water_occ") is not None else "Surface water occurrence: —")
+        st.write(f"Area of interest: {fmt_num(metrics.get('area_ha'), 1, ' ha')}")
+        st.write(f"Tree cover: {fmt_num(metrics.get('tree_pct'), 1, '%')}")
+        st.write(f"Cropland: {fmt_num(metrics.get('cropland_pct'), 1, '%')}")
+        st.write(f"Built-up: {fmt_num(metrics.get('built_pct'), 1, '%')}")
+        st.write(f"Surface water occurrence: {fmt_num(metrics.get('water_occ'), 1)}")
 
         st.markdown("### Evaluate")
         st.write("Current and historical environmental conditions have been reviewed using the dashboard indicators.")
-        st.write(f'Current NDVI: {metrics.get("ndvi_current", 0):.3f}' if metrics.get("ndvi_current") is not None else "Current NDVI: —")
-        st.write(f'Historical NDVI trend: {metrics.get("ndvi_trend", 0):.3f}' if metrics.get("ndvi_trend") is not None else "Historical NDVI trend: —")
-        st.write(f'Rainfall anomaly: {metrics.get("rain_anom_pct", 0):.1f}%' if metrics.get("rain_anom_pct") is not None else "Rainfall anomaly: —")
-        st.write(f'Recent LST mean: {metrics.get("lst_mean", 0):.1f} °C' if metrics.get("lst_mean") is not None else "Recent LST mean: —")
-        st.write(f'Forest loss % of baseline forest: {metrics.get("forest_loss_pct", 0):.1f}%' if metrics.get("forest_loss_pct") is not None else "Forest loss % of baseline forest: —")
+        st.write(f"Current NDVI: {fmt_num(metrics.get('ndvi_current'), 3)}")
+        st.write(f"Historical NDVI trend: {fmt_num(metrics.get('ndvi_trend'), 3)}")
+        st.write(f"Rainfall anomaly: {fmt_num(metrics.get('rain_anom_pct'), 1, '%')}")
+        st.write(f"Recent LST mean: {fmt_num(metrics.get('lst_mean'), 1, ' °C')}")
+        st.write(f"Forest loss % of baseline forest: {fmt_num(metrics.get('forest_loss_pct'), 1, '%')}")
 
         st.markdown("### Assess")
         st.write("The dashboard interprets the evidence into a business-facing nature risk signal and identifies the most relevant issues.")
-        st.write(f'Nature risk score: {risk["score"]} / 100')
-        st.write(f'Risk band: {risk["band"]}')
+        st.write(f"Nature risk score: {risk['score']} / 100")
+        st.write(f"Risk band: {risk['band']}")
         if risk["flags"]:
             for flag in risk["flags"]:
                 st.write(f"• {flag}")
@@ -483,18 +493,19 @@ if run:
             st.write(f"• {rec}")
 
     with tab3:
-        st.markdown("## Image Outputs")
+        st.markdown("## Image outputs")
+
         img1, img2 = st.columns(2)
         with img1:
             st.image(satellite_url, caption="Satellite image with polygon", use_container_width=True)
-            st.image(ndvi_url, caption="NDVI vegetation health", use_container_width=True)
-            st.image(veg_change_url, caption="Vegetation change map", use_container_width=True)
+            st.image(ndvi_url, caption="NDVI image with polygon", use_container_width=True)
+            st.image(veg_change_url, caption="Vegetation change map with polygon", use_container_width=True)
         with img2:
-            st.image(landcover_url, caption="Land cover classification", use_container_width=True)
-            st.image(forest_loss_url, caption="Forest loss map", use_container_width=True)
+            st.image(landcover_url, caption="Land-cover image with polygon", use_container_width=True)
+            st.image(forest_loss_url, caption="Forest loss map with polygon", use_container_width=True)
 
     with tab4:
-        st.markdown("## Historical Trends")
+        st.markdown("## Historical plots")
 
         if not ndvi_hist_df.empty:
             fig = px.line(ndvi_hist_df, x="year", y="value", title="Historical NDVI (Landsat)")
@@ -512,12 +523,9 @@ if run:
             fig = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)")
             st.plotly_chart(fig, use_container_width=True)
 
-        if 'lc_df' in locals() and not lc_df.empty:
-            fig = px.pie(lc_df, values="area_ha", names="class_name", title="Current Land Cover Composition")
-            st.plotly_chart(fig, use_container_width=True)
-
     with tab5:
-        st.markdown("## Detailed Results")
+        st.markdown("## Detailed results")
+
         detail_df = pd.DataFrame(
             {
                 "Metric": [
@@ -553,3 +561,7 @@ if run:
             }
         )
         st.dataframe(detail_df, use_container_width=True)
+
+        if 'lc_df' in locals() and not lc_df.empty:
+            fig = px.pie(lc_df, values="area_ha", names="class_name", title="Current Land Cover Composition")
+            st.plotly_chart(fig, use_container_width=True)
