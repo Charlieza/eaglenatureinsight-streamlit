@@ -9,3 +9,4 @@ plotly
 reportlab
 requests
 google-auth
+kaleido
