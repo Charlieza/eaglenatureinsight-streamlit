@@ -121,7 +121,7 @@ def build_pdf_report(
         story.append(_safe_rl_image(str(logo_path), width_mm=34))
         story.append(Spacer(1, 3 * mm))
 
-    story.append(Paragraph("EagleNatureInsight™ Report", title_style))
+    story.append(Paragraph("EagleNatureInsight Report", title_style))
     story.append(Paragraph(f"Assessment date: {date.today().isoformat()}", body_style))
     story.append(Paragraph(f"Business preset: {preset}", body_style))
     story.append(Paragraph(f"Business category: {category}", body_style))
@@ -185,27 +185,27 @@ def build_pdf_report(
         (
             "Satellite image with polygon",
             satellite_url,
-            "True-colour satellite view of the selected site. The red outline shows the assessment area."
+            "This is a true-colour satellite view of the selected site. The red outline shows the assessment area."
         ),
         (
             "NDVI image with polygon",
             ndvi_url,
-            "Greener areas generally mean healthier or denser vegetation. Redder areas suggest weaker vegetation."
+            "This image shows vegetation condition. Greener areas generally mean healthier or denser vegetation. Redder areas generally mean weaker vegetation."
         ),
         (
             "Land-cover image with polygon",
             landcover_url,
-            "Shows the main land-cover types such as tree cover, cropland, built-up land, and water."
+            "This image shows the main land-cover types in the selected area, such as tree cover, cropland, built-up land, and water."
         ),
         (
             "Vegetation change map with polygon",
             vegetation_change_url,
-            "Redder areas suggest vegetation decline over time. Greener areas suggest improvement."
+            "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement."
         ),
         (
             "Forest loss map with polygon",
             forest_loss_url,
-            "Shows areas where forest loss has been detected in or around the selected area."
+            "This image highlights where forest loss has been detected in or around the selected area."
         ),
     ]
 
@@ -219,21 +219,22 @@ def build_pdf_report(
 
     if chart_images:
         story.append(PageBreak())
-        story.append(Paragraph("Historical plots", h_style))
+        story.append(Paragraph("Historical plots and charts", h_style))
 
         ordered = [
-            ("ndvi", "Historical NDVI"),
-            ("rain", "Historical rainfall"),
-            ("lst", "Historical land surface temperature"),
-            ("forest", "Historical forest loss"),
-            ("water", "Historical water presence"),
-            ("landcover", "Current land-cover composition"),
+            ("ndvi", "Historical NDVI", "This plot shows how vegetation condition has changed over time."),
+            ("rain", "Historical rainfall", "This plot shows the rainfall pattern across the selected historical period."),
+            ("lst", "Historical land surface temperature", "This plot shows how land surface temperature has changed over time."),
+            ("forest", "Historical forest loss", "This plot shows how much forest loss was detected each year."),
+            ("water", "Historical water presence", "This plot shows how water presence has changed over time."),
+            ("landcover", "Current land-cover composition", "This chart shows how the selected area is currently divided across land-cover classes."),
         ]
 
-        for key, title in ordered:
+        for key, title, expl in ordered:
             img_data = chart_images.get(key)
             if img_data is not None:
                 story.append(Paragraph(title, h_style))
+                story.append(Paragraph(expl, small_style))
                 story.append(_safe_rl_image(img_data, width_mm=175))
                 story.append(Spacer(1, 4 * mm))
 
