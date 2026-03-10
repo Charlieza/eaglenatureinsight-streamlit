@@ -16,11 +16,7 @@ from reportlab.platypus import (
     PageBreak,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
-
-PAGE_WIDTH_MM = 210
-LEFT_RIGHT_MARGIN_MM = 16
-USABLE_WIDTH_MM = PAGE_WIDTH_MM - (2 * LEFT_RIGHT_MARGIN_MM)
+from reportlab.lib.utils import ImageReader
 
 
 def _download_image(url: str) -> BytesIO | None:
@@ -41,7 +37,21 @@ def _fmt(val, digits=2, suffix=""):
         return "—"
 
 
-def _safe_rl_image(img_source, width_mm, height_mm):
+def _safe_rl_image(img_source, width_mm=None, height_mm=None):
+    img_reader = ImageReader(img_source)
+    orig_w, orig_h = img_reader.getSize()
+
+    if width_mm is not None and height_mm is None:
+        aspect = orig_h / orig_w
+        height_mm = width_mm * aspect
+    elif height_mm is not None and width_mm is None:
+        aspect = orig_w / orig_h
+        width_mm = height_mm * aspect
+    elif width_mm is None and height_mm is None:
+        width_mm = 60
+        aspect = orig_h / orig_w
+        height_mm = width_mm * aspect
+
     return Image(img_source, width=width_mm * mm, height=height_mm * mm)
 
 
@@ -108,8 +118,8 @@ def build_pdf_report(
 
     logo_path = Path("assets/logo.png")
     if logo_path.exists():
-        story.append(_safe_rl_image(str(logo_path), width_mm=32, height_mm=32))
-        story.append(Spacer(1, 2 * mm))
+        story.append(_safe_rl_image(str(logo_path), width_mm=34))
+        story.append(Spacer(1, 3 * mm))
 
     story.append(Paragraph("EagleNatureInsight™ Report", title_style))
     story.append(Paragraph(f"Assessment date: {date.today().isoformat()}", body_style))
@@ -204,7 +214,7 @@ def build_pdf_report(
         if img_data is not None:
             story.append(Paragraph(title, h_style))
             story.append(Paragraph(expl, small_style))
-            story.append(_safe_rl_image(img_data, width_mm=175, height_mm=98))
+            story.append(_safe_rl_image(img_data, width_mm=175))
             story.append(Spacer(1, 4 * mm))
 
     if chart_images:
@@ -224,7 +234,7 @@ def build_pdf_report(
             img_data = chart_images.get(key)
             if img_data is not None:
                 story.append(Paragraph(title, h_style))
-                story.append(_safe_rl_image(img_data, width_mm=175, height_mm=98))
+                story.append(_safe_rl_image(img_data, width_mm=175))
                 story.append(Spacer(1, 4 * mm))
 
     doc.build(story)
