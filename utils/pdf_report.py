@@ -222,12 +222,36 @@ def build_pdf_report(
         story.append(Paragraph("Historical plots and charts", h_style))
 
         ordered = [
-            ("ndvi", "Historical NDVI", "This plot shows how vegetation condition has changed over time."),
-            ("rain", "Historical rainfall", "This plot shows the rainfall pattern across the selected historical period."),
-            ("lst", "Historical land surface temperature", "This plot shows how land surface temperature has changed over time."),
-            ("forest", "Historical forest loss", "This plot shows how much forest loss was detected each year."),
-            ("water", "Historical water presence", "This plot shows how water presence has changed over time."),
-            ("landcover", "Current land-cover composition", "This chart shows how the selected area is currently divided across land-cover classes."),
+            (
+                "ndvi",
+                "Historical NDVI",
+                "This plot shows how vegetation condition has changed over time. Rising values usually suggest stronger vegetation cover, while falling values may indicate declining vegetation condition."
+            ),
+            (
+                "rain",
+                "Historical rainfall",
+                "This plot shows the rainfall pattern across the selected historical period. Lower rainfall over time can point to greater water stress."
+            ),
+            (
+                "lst",
+                "Historical land surface temperature",
+                "This plot shows how land surface temperature has changed over time. Higher values may suggest growing heat pressure across the site."
+            ),
+            (
+                "forest",
+                "Historical forest loss",
+                "This plot shows how much forest loss was detected each year. Larger bars indicate greater forest loss in that year."
+            ),
+            (
+                "water",
+                "Historical water presence",
+                "This plot shows how water presence has changed over time. Lower values may suggest reduced visible water in the landscape."
+            ),
+            (
+                "landcover",
+                "Current land-cover composition",
+                "This chart shows how the selected area is currently divided across land-cover classes such as tree cover, cropland, built-up land, and water."
+            ),
         ]
 
         for key, title, expl in ordered:
