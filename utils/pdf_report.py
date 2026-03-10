@@ -13,6 +13,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     PageBreak,
+    KeepTogether,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.utils import ImageReader
@@ -43,6 +44,23 @@ def _safe_rl_image(img_source, width_mm=None, height_mm=None):
         height_mm = width_mm * aspect
 
     return Image(img_source, width=width_mm * mm, height=height_mm * mm)
+
+
+def _section_with_optional_image(title, description, img_bytes, h_style, small_style, body_style):
+    items = [Paragraph(title, h_style)]
+    if description:
+        items.append(Paragraph(description, small_style))
+
+    if img_bytes is not None:
+        try:
+            items.append(_safe_rl_image(img_bytes, width_mm=175))
+        except Exception:
+            items.append(Paragraph("Image unavailable in this export.", body_style))
+    else:
+        items.append(Paragraph("Image unavailable in this export.", body_style))
+
+    items.append(Spacer(1, 4 * mm))
+    return KeepTogether(items)
 
 
 def build_pdf_report(
@@ -81,7 +99,7 @@ def build_pdf_report(
         textColor=colors.HexColor("#163d63"),
         fontSize=13,
         leading=16,
-        spaceAfter=6,
+        spaceAfter=4,
         spaceBefore=8,
     )
     body_style = ParagraphStyle(
@@ -94,8 +112,8 @@ def build_pdf_report(
     small_style = ParagraphStyle(
         "small_style",
         parent=styles["BodyText"],
-        fontSize=8.5,
-        leading=10.5,
+        fontSize=8.8,
+        leading=11,
         textColor=colors.HexColor("#4b5563"),
         spaceAfter=4,
     )
@@ -104,8 +122,11 @@ def build_pdf_report(
 
     logo_path = Path("assets/logo.png")
     if logo_path.exists():
-        story.append(_safe_rl_image(str(logo_path), width_mm=34))
-        story.append(Spacer(1, 3 * mm))
+        try:
+            story.append(_safe_rl_image(str(logo_path), width_mm=34))
+            story.append(Spacer(1, 3 * mm))
+        except Exception:
+            pass
 
     story.append(Paragraph("EagleNatureInsight Report", title_style))
     story.append(Paragraph(f"Assessment date: {date.today().isoformat()}", body_style))
@@ -169,27 +190,31 @@ def build_pdf_report(
         story.append(PageBreak())
         story.append(Paragraph("Image outputs", h_style))
         for item in image_payloads:
-            img_bytes = item.get("bytes")
-            if img_bytes is not None:
-                story.append(Paragraph(item.get("title", "Image"), h_style))
-                desc = item.get("description")
-                if desc:
-                    story.append(Paragraph(desc, small_style))
-                story.append(_safe_rl_image(img_bytes, width_mm=175))
-                story.append(Spacer(1, 4 * mm))
+            story.append(
+                _section_with_optional_image(
+                    title=item.get("title", "Image"),
+                    description=item.get("description", ""),
+                    img_bytes=item.get("bytes"),
+                    h_style=h_style,
+                    small_style=small_style,
+                    body_style=body_style,
+                )
+            )
 
     if chart_payloads:
         story.append(PageBreak())
         story.append(Paragraph("Historical plots and charts", h_style))
         for item in chart_payloads:
-            img_bytes = item.get("bytes")
-            if img_bytes is not None:
-                story.append(Paragraph(item.get("title", "Chart"), h_style))
-                desc = item.get("description")
-                if desc:
-                    story.append(Paragraph(desc, small_style))
-                story.append(_safe_rl_image(img_bytes, width_mm=175))
-                story.append(Spacer(1, 4 * mm))
+            story.append(
+                _section_with_optional_image(
+                    title=item.get("title", "Chart"),
+                    description=item.get("description", ""),
+                    img_bytes=item.get("bytes"),
+                    h_style=h_style,
+                    small_style=small_style,
+                    body_style=body_style,
+                )
+            )
 
     doc.build(story)
     pdf_bytes = buffer.getvalue()
