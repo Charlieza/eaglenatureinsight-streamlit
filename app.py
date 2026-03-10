@@ -336,13 +336,6 @@ st.markdown(
         font-size: 0.88rem;
         color: white;
     }
-    .soft-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        padding: 16px 18px;
-        box-shadow: 0 6px 18px rgba(17,24,39,0.05);
-    }
     </style>
     """,
     unsafe_allow_html=True,
