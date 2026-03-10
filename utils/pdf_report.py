@@ -1,7 +1,6 @@
 from io import BytesIO
 from datetime import date
 from pathlib import Path
-import requests
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -17,15 +16,6 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.utils import ImageReader
-
-
-def _download_image(url: str) -> BytesIO | None:
-    try:
-        r = requests.get(url, timeout=45)
-        r.raise_for_status()
-        return BytesIO(r.content)
-    except Exception:
-        return None
 
 
 def _fmt(val, digits=2, suffix=""):
@@ -62,12 +52,8 @@ def build_pdf_report(
     hist_end: int,
     metrics: dict,
     risk: dict,
-    satellite_url: str,
-    ndvi_url: str,
-    landcover_url: str,
-    forest_loss_url: str,
-    vegetation_change_url: str,
-    chart_images: dict | None = None,
+    image_payloads: list,
+    chart_payloads: list,
 ) -> bytes:
     buffer = BytesIO()
 
@@ -179,87 +165,30 @@ def build_pdf_report(
         for rec in risk["recs"]:
             story.append(Paragraph(f"• {rec}", body_style))
 
-    story.append(PageBreak())
+    if image_payloads:
+        story.append(PageBreak())
+        story.append(Paragraph("Image outputs", h_style))
+        for item in image_payloads:
+            img_bytes = item.get("bytes")
+            if img_bytes is not None:
+                story.append(Paragraph(item.get("title", "Image"), h_style))
+                desc = item.get("description")
+                if desc:
+                    story.append(Paragraph(desc, small_style))
+                story.append(_safe_rl_image(img_bytes, width_mm=175))
+                story.append(Spacer(1, 4 * mm))
 
-    image_specs = [
-        (
-            "Satellite image with polygon",
-            satellite_url,
-            "This is a true-colour satellite view of the selected site. The red outline shows the assessment area."
-        ),
-        (
-            "NDVI image with polygon",
-            ndvi_url,
-            "This image shows vegetation condition. Greener areas generally mean healthier or denser vegetation. Redder areas generally mean weaker vegetation."
-        ),
-        (
-            "Land-cover image with polygon",
-            landcover_url,
-            "This image shows the main land-cover types in the selected area, such as tree cover, cropland, built-up land, and water."
-        ),
-        (
-            "Vegetation change map with polygon",
-            vegetation_change_url,
-            "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement."
-        ),
-        (
-            "Forest loss map with polygon",
-            forest_loss_url,
-            "This image highlights where forest loss has been detected in or around the selected area."
-        ),
-    ]
-
-    for title, url, expl in image_specs:
-        img_data = _download_image(url)
-        if img_data is not None:
-            story.append(Paragraph(title, h_style))
-            story.append(Paragraph(expl, small_style))
-            story.append(_safe_rl_image(img_data, width_mm=175))
-            story.append(Spacer(1, 4 * mm))
-
-    if chart_images:
+    if chart_payloads:
         story.append(PageBreak())
         story.append(Paragraph("Historical plots and charts", h_style))
-
-        ordered = [
-            (
-                "ndvi",
-                "Historical NDVI",
-                "This plot shows how vegetation condition has changed over time. Rising values usually suggest stronger vegetation cover, while falling values may indicate declining vegetation condition."
-            ),
-            (
-                "rain",
-                "Historical rainfall",
-                "This plot shows the rainfall pattern across the selected historical period. Lower rainfall over time can point to greater water stress."
-            ),
-            (
-                "lst",
-                "Historical land surface temperature",
-                "This plot shows how land surface temperature has changed over time. Higher values may suggest growing heat pressure across the site."
-            ),
-            (
-                "forest",
-                "Historical forest loss",
-                "This plot shows how much forest loss was detected each year. Larger bars indicate greater forest loss in that year."
-            ),
-            (
-                "water",
-                "Historical water presence",
-                "This plot shows how water presence has changed over time. Lower values may suggest reduced visible water in the landscape."
-            ),
-            (
-                "landcover",
-                "Current land-cover composition",
-                "This chart shows how the selected area is currently divided across land-cover classes such as tree cover, cropland, built-up land, and water."
-            ),
-        ]
-
-        for key, title, expl in ordered:
-            img_data = chart_images.get(key)
-            if img_data is not None:
-                story.append(Paragraph(title, h_style))
-                story.append(Paragraph(expl, small_style))
-                story.append(_safe_rl_image(img_data, width_mm=175))
+        for item in chart_payloads:
+            img_bytes = item.get("bytes")
+            if img_bytes is not None:
+                story.append(Paragraph(item.get("title", "Chart"), h_style))
+                desc = item.get("description")
+                if desc:
+                    story.append(Paragraph(desc, small_style))
+                story.append(_safe_rl_image(img_bytes, width_mm=175))
                 story.append(Spacer(1, 4 * mm))
 
     doc.build(story)
