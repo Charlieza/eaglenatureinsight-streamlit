@@ -305,7 +305,7 @@ def build_landcover_bar(df):
 
 def fetch_image_bytes(url: str):
     try:
-        r = requests.get(url, timeout=45)
+        r = requests.get(url, timeout=60)
         r.raise_for_status()
         buf = BytesIO(r.content)
         buf.seek(0)
