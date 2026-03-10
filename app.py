@@ -119,7 +119,7 @@ def build_map(center, zoom, draw_mode, lat=None, lon=None, buffer_m=None, existi
         zoom_start=zoom,
         control_scale=True,
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri Satellite"
+        attr="Esri Satellite",
     )
 
     Draw(
@@ -142,7 +142,7 @@ def build_map(center, zoom, draw_mode, lat=None, lon=None, buffer_m=None, existi
                 "color": "#ff0000",
                 "weight": 3,
                 "fillOpacity": 0.05,
-            }
+            },
         ).add_to(m)
 
     if draw_mode == "Enter coordinates":
@@ -292,7 +292,7 @@ def build_landcover_bar(df):
         df.sort_values("area_ha", ascending=False),
         x="class_name",
         y="area_ha",
-        title="Current Land Cover Composition"
+        title="Current Land Cover Composition",
     )
     fig.update_layout(
         xaxis_title="Land-cover class",
@@ -303,7 +303,7 @@ def build_landcover_bar(df):
     return fig
 
 
-def fetch_image_bytes(url: str, timeout: int = 90):
+def fetch_image_bytes(url: str, timeout: int = 60):
     try:
         r = requests.get(url, timeout=timeout)
         r.raise_for_status()
@@ -314,12 +314,19 @@ def fetch_image_bytes(url: str, timeout: int = 90):
         return None
 
 
-def fetch_pdf_ee_image_bytes(image, geom, dimensions=900):
-    try:
-        url = image_thumb_url(image, geom, dimensions=dimensions)
-        return fetch_image_bytes(url, timeout=120)
-    except Exception:
-        return None
+def fetch_pdf_ee_image_bytes(image, geom, dimensions=900, retries=3):
+    attempt_dims = [dimensions, 700, 500]
+
+    for i in range(min(retries, len(attempt_dims))):
+        try:
+            url = image_thumb_url(image, geom, dimensions=attempt_dims[i])
+            result = fetch_image_bytes(url, timeout=150)
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
+    return None
 
 
 init_state()
@@ -365,7 +372,7 @@ hero_left, hero_right = st.columns([1.2, 5])
 
 with hero_left:
     if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width=500)
+        st.image(str(LOGO_PATH), width=220)
 
 with hero_right:
     st.markdown(
@@ -517,34 +524,43 @@ if run:
             metrics=metrics,
         )
 
-        # Dashboard images
         satellite_img = satellite_with_polygon(ee_geom, LAST_FULL_YEAR)
         ndvi_img = ndvi_with_polygon(ee_geom, LAST_FULL_YEAR)
         landcover_img = landcover_with_polygon(ee_geom)
         forest_loss_img = forest_loss_with_polygon(ee_geom)
         veg_change_img = vegetation_change_with_polygon(ee_geom, int(hist_start), int(hist_end))
 
-        satellite_url = image_thumb_url(satellite_img, ee_geom, 2200)
+        satellite_url = image_thumb_url(satellite_img, ee_geom, 1400)
         ndvi_url = image_thumb_url(ndvi_img, ee_geom, 1400)
         landcover_url = image_thumb_url(landcover_img, ee_geom, 1400)
         forest_loss_url = image_thumb_url(forest_loss_img, ee_geom, 1400)
         veg_change_url = image_thumb_url(veg_change_img, ee_geom, 1400)
 
-        ndvi_hist_df = prep_year_df(fc_to_dataframe(
-            landsat_annual_ndvi_collection(ee_geom, max(int(hist_start), 1984), int(hist_end))
-        ))
-        rain_hist_df = prep_year_df(fc_to_dataframe(
-            annual_rain_collection(ee_geom, max(int(hist_start), 1981), int(hist_end))
-        ))
-        lst_hist_df = prep_year_df(fc_to_dataframe(
-            annual_lst_collection(ee_geom, max(int(hist_start), 2001), int(hist_end))
-        ))
-        forest_hist_df = prep_year_df(fc_to_dataframe(
-            forest_loss_by_year_collection(ee_geom, int(hist_start), int(hist_end))
-        ))
-        water_hist_df = prep_year_df(fc_to_dataframe(
-            water_history_collection(ee_geom, max(int(hist_start), 1984), int(hist_end))
-        ))
+        ndvi_hist_df = prep_year_df(
+            fc_to_dataframe(
+                landsat_annual_ndvi_collection(ee_geom, max(int(hist_start), 1984), int(hist_end))
+            )
+        )
+        rain_hist_df = prep_year_df(
+            fc_to_dataframe(
+                annual_rain_collection(ee_geom, max(int(hist_start), 1981), int(hist_end))
+            )
+        )
+        lst_hist_df = prep_year_df(
+            fc_to_dataframe(
+                annual_lst_collection(ee_geom, max(int(hist_start), 2001), int(hist_end))
+            )
+        )
+        forest_hist_df = prep_year_df(
+            fc_to_dataframe(
+                forest_loss_by_year_collection(ee_geom, int(hist_start), int(hist_end))
+            )
+        )
+        water_hist_df = prep_year_df(
+            fc_to_dataframe(
+                water_history_collection(ee_geom, max(int(hist_start), 1984), int(hist_end))
+            )
+        )
         lc_df = fc_to_dataframe(landcover_feature_collection(ee_geom))
         if not lc_df.empty and "area_ha" in lc_df.columns:
             lc_df["area_ha"] = pd.to_numeric(lc_df["area_ha"], errors="coerce")
@@ -584,17 +600,16 @@ if run:
             },
         ]
 
-        # PDF-specific lighter images
         image_payloads = [
             {
                 "title": "Satellite image with polygon",
                 "description": "This is a true-colour satellite view of the selected site. The red outline shows the assessment area.",
-                "bytes": fetch_pdf_ee_image_bytes(satellite_img, ee_geom, dimensions=850),
+                "bytes": fetch_pdf_ee_image_bytes(satellite_img, ee_geom, dimensions=700),
             },
             {
                 "title": "NDVI image with polygon",
                 "description": "This image shows vegetation condition. Greener areas generally mean healthier or denser vegetation. Redder areas generally mean weaker vegetation.",
-                "bytes": fetch_pdf_ee_image_bytes(ndvi_img, ee_geom, dimensions=850),
+                "bytes": fetch_pdf_ee_image_bytes(ndvi_img, ee_geom, dimensions=700),
             },
             {
                 "title": "Land-cover image with polygon",
@@ -604,7 +619,7 @@ if run:
             {
                 "title": "Vegetation change map with polygon",
                 "description": "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement.",
-                "bytes": fetch_pdf_ee_image_bytes(veg_change_img, ee_geom, dimensions=850),
+                "bytes": fetch_pdf_ee_image_bytes(veg_change_img, ee_geom, dimensions=500),
             },
             {
                 "title": "Forest loss map with polygon",
