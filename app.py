@@ -8,6 +8,7 @@ import streamlit as st
 import folium
 from folium.plugins import Draw
 from streamlit_folium import st_folium
+import matplotlib.pyplot as plt
 
 from utils.ee_helpers import (
     initialize_ee_from_secrets,
@@ -239,18 +240,50 @@ def fmt_num(val, digits=1, suffix=""):
         return "—"
 
 
-def fig_to_png_bytes(fig):
-    try:
-        img = fig.to_image(
-            format="png",
-            width=1400,
-            height=800,
-            scale=2,
-            engine="kaleido",
-        )
-        return BytesIO(img)
-    except Exception:
+def df_chart_to_png_bytes(df, x_col, y_col, title, kind="line", x_label="Year", y_label="Value"):
+    if df is None or df.empty:
         return None
+
+    fig, ax = plt.subplots(figsize=(10, 5.2))
+    if kind == "bar":
+        ax.bar(df[x_col], df[y_col])
+    else:
+        ax.plot(df[x_col], df[y_col], marker="o")
+
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+
+def landcover_bar_to_png_bytes(df):
+    if df is None or df.empty:
+        return None
+
+    df2 = df.sort_values("area_ha", ascending=False).copy()
+
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    ax.bar(df2["class_name"], df2["area_ha"])
+    ax.set_title("Current Land Cover Composition")
+    ax.set_xlabel("Land-cover class")
+    ax.set_ylabel("Area (ha)")
+    ax.grid(True, axis="y", alpha=0.3)
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf
 
 
 def build_landcover_bar(df):
@@ -465,27 +498,14 @@ if run:
             lc_df = lc_df[lc_df["area_ha"].notna()].copy()
             lc_df = lc_df[lc_df["area_ha"] > 0].copy()
 
-        chart_images = {}
-
-        fig_ndvi = px.line(ndvi_hist_df, x="year", y="value", title="Historical NDVI (Landsat)") if not ndvi_hist_df.empty else None
-        fig_rain = px.line(rain_hist_df, x="year", y="value", title="Historical Rainfall (CHIRPS)") if not rain_hist_df.empty else None
-        fig_lst = px.line(lst_hist_df, x="year", y="value", title="Historical Land Surface Temperature (MODIS)") if not lst_hist_df.empty else None
-        fig_forest = px.bar(forest_hist_df, x="year", y="value", title="Historical Forest Loss by Year (Hansen)") if not forest_hist_df.empty else None
-        fig_water = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)") if not water_hist_df.empty else None
-        fig_lc = build_landcover_bar(lc_df) if not lc_df.empty else None
-
-        if fig_ndvi is not None:
-            chart_images["ndvi"] = fig_to_png_bytes(fig_ndvi)
-        if fig_rain is not None:
-            chart_images["rain"] = fig_to_png_bytes(fig_rain)
-        if fig_lst is not None:
-            chart_images["lst"] = fig_to_png_bytes(fig_lst)
-        if fig_forest is not None:
-            chart_images["forest"] = fig_to_png_bytes(fig_forest)
-        if fig_water is not None:
-            chart_images["water"] = fig_to_png_bytes(fig_water)
-        if fig_lc is not None:
-            chart_images["landcover"] = fig_to_png_bytes(fig_lc)
+        chart_images = {
+            "ndvi": df_chart_to_png_bytes(ndvi_hist_df, "year", "value", "Historical NDVI (Landsat)", kind="line", y_label="NDVI"),
+            "rain": df_chart_to_png_bytes(rain_hist_df, "year", "value", "Historical Rainfall (CHIRPS)", kind="line", y_label="mm"),
+            "lst": df_chart_to_png_bytes(lst_hist_df, "year", "value", "Historical Land Surface Temperature (MODIS)", kind="line", y_label="°C"),
+            "forest": df_chart_to_png_bytes(forest_hist_df, "year", "value", "Historical Forest Loss by Year (Hansen)", kind="bar", y_label="ha"),
+            "water": df_chart_to_png_bytes(water_hist_df, "year", "value", "Historical Water Presence (JRC)", kind="line", y_label="% water pixels"),
+            "landcover": landcover_bar_to_png_bytes(lc_df),
+        }
 
         pdf_bytes = build_pdf_report(
             preset=preset,
