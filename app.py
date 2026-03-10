@@ -314,19 +314,15 @@ def fetch_image_bytes(url: str, timeout: int = 90):
         return None
 
 
-def fetch_pdf_ee_image_bytes(image, geom, dimensions=900, retries=3):
-    attempt_dims = [dimensions, 700, 500]
+def fetch_pdf_ee_image_bytes(image, geom, dimensions=900):
+    try:
+        url = image_thumb_url(image, geom, dimensions=dimensions)
+        return fetch_image_bytes(url, timeout=120)
+    except Exception:
+        return None
 
-    for i in range(min(retries, len(attempt_dims))):
-        try:
-            url = image_thumb_url(image, geom, dimensions=attempt_dims[i])
-            result = fetch_image_bytes(url, timeout=150)
-            if result is not None:
-                return result
-        except Exception:
-            pass
 
-    return None
+init_state()
 
 try:
     initialize_ee_from_secrets(st)
@@ -608,7 +604,7 @@ if run:
             {
                 "title": "Vegetation change map with polygon",
                 "description": "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement.",
-                "bytes": fetch_pdf_ee_image_bytes(veg_change_img, ee_geom, dimensions=500),
+                "bytes": fetch_pdf_ee_image_bytes(veg_change_img, ee_geom, dimensions=850),
             },
             {
                 "title": "Forest loss map with polygon",
