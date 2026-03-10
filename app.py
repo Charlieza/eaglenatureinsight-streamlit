@@ -17,12 +17,14 @@ from utils.ee_helpers import (
     ndvi_with_polygon,
     landcover_with_polygon,
     forest_loss_with_polygon,
+    vegetation_change_with_polygon,
     image_thumb_url,
     landsat_annual_ndvi_collection,
     annual_rain_collection,
     annual_lst_collection,
     forest_loss_by_year_collection,
     water_history_collection,
+    landcover_feature_collection,
 )
 from utils.scoring import build_risk_and_recommendations
 
@@ -76,6 +78,7 @@ def init_state():
         "map_center": [-25.0, 24.0],
         "map_zoom": 5,
         "draw_mode": "Draw polygon",
+        "last_drawn_geojson": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -104,28 +107,14 @@ def preset_changed():
         apply_preset(preset)
 
 
-def build_map(center, zoom, draw_mode, lat=None, lon=None, buffer_m=None):
+def build_map(center, zoom, draw_mode, lat=None, lon=None, buffer_m=None, existing_geojson=None):
     m = folium.Map(
         location=center,
         zoom_start=zoom,
         control_scale=True,
-        tiles=None
-    )
-
-    folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri",
-        name="Satellite",
-        overlay=False,
-        control=True,
-    ).add_to(m)
-
-    folium.TileLayer(
-        tiles="OpenStreetMap",
-        name="Street",
-        overlay=False,
-        control=True,
-    ).add_to(m)
+        attr="Esri Satellite"
+    )
 
     Draw(
         export=False,
@@ -139,6 +128,16 @@ def build_map(center, zoom, draw_mode, lat=None, lon=None, buffer_m=None):
         },
         edit_options={"edit": True, "remove": True},
     ).add_to(m)
+
+    if existing_geojson:
+        folium.GeoJson(
+            existing_geojson,
+            style_function=lambda x: {
+                "color": "#ff0000",
+                "weight": 3,
+                "fillOpacity": 0.05,
+            }
+        ).add_to(m)
 
     if draw_mode == "Enter coordinates":
         try:
@@ -156,7 +155,6 @@ def build_map(center, zoom, draw_mode, lat=None, lon=None, buffer_m=None):
         except (TypeError, ValueError):
             pass
 
-    folium.LayerControl().add_to(m)
     return m
 
 
@@ -327,6 +325,7 @@ m = build_map(
     lat=st.session_state.lat_input,
     lon=st.session_state.lon_input,
     buffer_m=st.session_state.buffer_input,
+    existing_geojson=st.session_state.last_drawn_geojson,
 )
 
 map_data = st_folium(
@@ -338,8 +337,11 @@ map_data = st_folium(
 )
 
 drawn_geojson = extract_drawn_geometry(map_data)
+if drawn_geojson is not None:
+    st.session_state.last_drawn_geojson = drawn_geojson
+
 summary_text, geometry_payload, ee_geom = get_geometry_payload(
-    drawn_geojson=drawn_geojson,
+    drawn_geojson=st.session_state.last_drawn_geojson if st.session_state.draw_mode == "Draw polygon" else None,
     lat=st.session_state.lat_input,
     lon=st.session_state.lon_input,
     buffer_m=st.session_state.buffer_input,
@@ -394,6 +396,9 @@ if run:
         forest_loss_url = image_thumb_url(
             forest_loss_with_polygon(ee_geom), ee_geom, 1400
         )
+        veg_change_url = image_thumb_url(
+            vegetation_change_with_polygon(ee_geom, int(hist_start), int(hist_end)), ee_geom, 1400
+        )
 
         ndvi_hist_df = prep_year_df(fc_to_dataframe(
             landsat_annual_ndvi_collection(ee_geom, max(int(hist_start), 1984), int(hist_end))
@@ -410,6 +415,11 @@ if run:
         water_hist_df = prep_year_df(fc_to_dataframe(
             water_history_collection(ee_geom, max(int(hist_start), 1984), int(hist_end))
         ))
+        lc_df = fc_to_dataframe(landcover_feature_collection(ee_geom))
+        if not lc_df.empty and "area_ha" in lc_df.columns:
+            lc_df["area_ha"] = pd.to_numeric(lc_df["area_ha"], errors="coerce")
+            lc_df = lc_df[lc_df["area_ha"].notna()].copy()
+            lc_df = lc_df[lc_df["area_ha"] > 0].copy()
 
     st.success("Assessment complete.")
 
@@ -477,10 +487,11 @@ if run:
         img1, img2 = st.columns(2)
         with img1:
             st.image(satellite_url, caption="Satellite image with polygon", use_container_width=True)
-            st.image(landcover_url, caption="Land-cover image with polygon", use_container_width=True)
+            st.image(ndvi_url, caption="NDVI vegetation health", use_container_width=True)
+            st.image(veg_change_url, caption="Vegetation change map", use_container_width=True)
         with img2:
-            st.image(ndvi_url, caption="NDVI image with polygon", use_container_width=True)
-            st.image(forest_loss_url, caption="Forest loss map with polygon", use_container_width=True)
+            st.image(landcover_url, caption="Land cover classification", use_container_width=True)
+            st.image(forest_loss_url, caption="Forest loss map", use_container_width=True)
 
     with tab4:
         st.markdown("## Historical Trends")
@@ -499,6 +510,10 @@ if run:
             st.plotly_chart(fig, use_container_width=True)
         if not water_hist_df.empty:
             fig = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)")
+            st.plotly_chart(fig, use_container_width=True)
+
+        if 'lc_df' in locals() and not lc_df.empty:
+            fig = px.pie(lc_df, values="area_ha", names="class_name", title="Current Land Cover Composition")
             st.plotly_chart(fig, use_container_width=True)
 
     with tab5:
