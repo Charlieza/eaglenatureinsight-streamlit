@@ -9,6 +9,7 @@ import folium
 from folium.plugins import Draw
 from streamlit_folium import st_folium
 import matplotlib.pyplot as plt
+import requests
 
 from utils.ee_helpers import (
     initialize_ee_from_secrets,
@@ -302,6 +303,17 @@ def build_landcover_bar(df):
     return fig
 
 
+def fetch_image_bytes(url: str):
+    try:
+        r = requests.get(url, timeout=45)
+        r.raise_for_status()
+        buf = BytesIO(r.content)
+        buf.seek(0)
+        return buf
+    except Exception:
+        return None
+
+
 init_state()
 
 try:
@@ -534,14 +546,66 @@ if run:
             lc_df = lc_df[lc_df["area_ha"].notna()].copy()
             lc_df = lc_df[lc_df["area_ha"] > 0].copy()
 
-        chart_images = {
-            "ndvi": df_chart_to_png_bytes(ndvi_hist_df, "year", "value", "Historical NDVI (Landsat)", kind="line", y_label="NDVI"),
-            "rain": df_chart_to_png_bytes(rain_hist_df, "year", "value", "Historical Rainfall (CHIRPS)", kind="line", y_label="mm"),
-            "lst": df_chart_to_png_bytes(lst_hist_df, "year", "value", "Historical Land Surface Temperature (MODIS)", kind="line", y_label="°C"),
-            "forest": df_chart_to_png_bytes(forest_hist_df, "year", "value", "Historical Forest Loss by Year (Hansen)", kind="bar", y_label="ha"),
-            "water": df_chart_to_png_bytes(water_hist_df, "year", "value", "Historical Water Presence (JRC)", kind="line", y_label="% water pixels"),
-            "landcover": landcover_bar_to_png_bytes(lc_df),
-        }
+        chart_payloads = [
+            {
+                "title": "Historical NDVI",
+                "description": "This plot shows how vegetation condition has changed over time. Rising values usually suggest stronger vegetation cover, while falling values may indicate declining vegetation condition.",
+                "bytes": df_chart_to_png_bytes(ndvi_hist_df, "year", "value", "Historical NDVI (Landsat)", kind="line", y_label="NDVI"),
+            },
+            {
+                "title": "Historical rainfall",
+                "description": "This plot shows the rainfall pattern across the selected historical period. Lower rainfall over time can point to greater water stress.",
+                "bytes": df_chart_to_png_bytes(rain_hist_df, "year", "value", "Historical Rainfall (CHIRPS)", kind="line", y_label="mm"),
+            },
+            {
+                "title": "Historical land surface temperature",
+                "description": "This plot shows how land surface temperature has changed over time. Higher values may suggest growing heat pressure across the site.",
+                "bytes": df_chart_to_png_bytes(lst_hist_df, "year", "value", "Historical Land Surface Temperature (MODIS)", kind="line", y_label="°C"),
+            },
+            {
+                "title": "Historical forest loss",
+                "description": "This plot shows how much forest loss was detected each year. Larger bars indicate greater forest loss in that year.",
+                "bytes": df_chart_to_png_bytes(forest_hist_df, "year", "value", "Historical Forest Loss by Year (Hansen)", kind="bar", y_label="ha"),
+            },
+            {
+                "title": "Historical water presence",
+                "description": "This plot shows how water presence has changed over time. Lower values may suggest reduced visible water in the landscape.",
+                "bytes": df_chart_to_png_bytes(water_hist_df, "year", "value", "Historical Water Presence (JRC)", kind="line", y_label="% water pixels"),
+            },
+            {
+                "title": "Current land-cover composition",
+                "description": "This chart shows how the selected area is currently divided across land-cover classes such as tree cover, cropland, built-up land, and water.",
+                "bytes": landcover_bar_to_png_bytes(lc_df),
+            },
+        ]
+
+        image_payloads = [
+            {
+                "title": "Satellite image with polygon",
+                "description": "This is a true-colour satellite view of the selected site. The red outline shows the assessment area.",
+                "bytes": fetch_image_bytes(satellite_url),
+            },
+            {
+                "title": "NDVI image with polygon",
+                "description": "This image shows vegetation condition. Greener areas generally mean healthier or denser vegetation. Redder areas generally mean weaker vegetation.",
+                "bytes": fetch_image_bytes(ndvi_url),
+            },
+            {
+                "title": "Land-cover image with polygon",
+                "description": "This image shows the main land-cover types in the selected area, such as tree cover, cropland, built-up land, and water.",
+                "bytes": fetch_image_bytes(landcover_url),
+            },
+            {
+                "title": "Vegetation change map with polygon",
+                "description": "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement.",
+                "bytes": fetch_image_bytes(veg_change_url),
+            },
+            {
+                "title": "Forest loss map with polygon",
+                "description": "This image highlights where forest loss has been detected in or around the selected area.",
+                "bytes": fetch_image_bytes(forest_loss_url),
+            },
+        ]
 
         pdf_bytes = build_pdf_report(
             preset=preset,
@@ -550,12 +614,8 @@ if run:
             hist_end=int(hist_end),
             metrics=metrics,
             risk=risk,
-            satellite_url=satellite_url,
-            ndvi_url=ndvi_url,
-            landcover_url=landcover_url,
-            forest_loss_url=forest_loss_url,
-            vegetation_change_url=veg_change_url,
-            chart_images=chart_images,
+            image_payloads=image_payloads,
+            chart_payloads=chart_payloads,
         )
 
         st.session_state["report_payload"] = {
