@@ -1,5 +1,6 @@
 from io import BytesIO
 from datetime import date
+from pathlib import Path
 import requests
 
 from reportlab.lib.pagesizes import A4
@@ -85,6 +86,11 @@ def build_pdf_report(
     )
 
     story = []
+
+    logo_path = Path("assets/logo.png")
+    if logo_path.exists():
+        story.append(Image(str(logo_path), width=42 * mm, height=42 * mm))
+        story.append(Spacer(1, 3 * mm))
 
     story.append(Paragraph("EagleNatureInsight™ Report", title_style))
     story.append(Paragraph(f"Assessment date: {date.today().isoformat()}", body_style))
