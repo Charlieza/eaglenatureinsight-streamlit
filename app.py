@@ -82,20 +82,22 @@ def init_state():
 
 
 def apply_preset(preset: str):
+    st.session_state["preset_selector"] = preset
+
     if preset in PRESET_TO_CATEGORY:
-        st.session_state.category_selector = PRESET_TO_CATEGORY[preset]
+        st.session_state["category_selector"] = PRESET_TO_CATEGORY[preset]
 
     if preset in PRESET_TO_LOCATION:
         loc = PRESET_TO_LOCATION[preset]
-        st.session_state.lat_input = str(loc["lat"])
-        st.session_state.lon_input = str(loc["lon"])
-        st.session_state.buffer_input = int(loc["buffer_m"])
-        st.session_state.map_center = [loc["lat"], loc["lon"]]
-        st.session_state.map_zoom = loc["zoom"]
+        st.session_state["lat_input"] = str(loc["lat"])
+        st.session_state["lon_input"] = str(loc["lon"])
+        st.session_state["buffer_input"] = int(loc["buffer_m"])
+        st.session_state["map_center"] = [loc["lat"], loc["lon"]]
+        st.session_state["map_zoom"] = loc["zoom"]
 
 
 def preset_changed():
-    preset = st.session_state.preset_selector
+    preset = st.session_state["preset_selector"]
     if preset != "Select Business / Area":
         apply_preset(preset)
 
@@ -267,21 +269,21 @@ with left_col:
     )
 
 with right_col:
-    st.selectbox(
-        "Business category",
-        CATEGORIES,
-        key="category_selector",
-    )
+    focus1, focus2 = st.columns(2)
+    with focus1:
+        if st.button("Focus Panuka", use_container_width=True):
+            apply_preset("Panuka AgriBiz Hub")
+            st.rerun()
+    with focus2:
+        if st.button("Focus BL Turner", use_container_width=True):
+            apply_preset("BL Turner Group")
+            st.rerun()
 
-focus1, focus2 = st.columns(2)
-with focus1:
-    if st.button("Focus Panuka", use_container_width=True):
-        apply_preset("Panuka AgriBiz Hub")
-        st.rerun()
-with focus2:
-    if st.button("Focus BL Turner", use_container_width=True):
-        apply_preset("BL Turner Group")
-        st.rerun()
+st.selectbox(
+    "Business category",
+    CATEGORIES,
+    key="category_selector",
+)
 
 mode_col1, mode_col2 = st.columns([1, 1])
 with mode_col1:
