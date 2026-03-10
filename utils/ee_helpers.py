@@ -159,6 +159,54 @@ def forest_loss_with_polygon(geom: ee.Geometry) -> ee.Image:
     return add_polygon_overlay(vis, geom)
 
 
+def vegetation_change_with_polygon(geom: ee.Geometry, hist_start: int, hist_end: int) -> ee.Image:
+    ds = get_datasets()
+    start_year = max(hist_start, 2016)
+    end_year = hist_end
+
+    early_end_year = min(start_year + 1, end_year)
+    late_start_year = max(end_year - 1, start_year)
+
+    early = (
+        ds["S2"]
+        .filterBounds(geom)
+        .filterDate(f"{start_year}-01-01", f"{early_end_year}-12-31")
+        .map(mask_s2_clouds)
+        .median()
+        .normalizedDifference(["B8", "B4"])
+        .rename("NDVI")
+    )
+
+    late = (
+        ds["S2"]
+        .filterBounds(geom)
+        .filterDate(f"{late_start_year}-01-01", f"{end_year}-12-31")
+        .map(mask_s2_clouds)
+        .median()
+        .normalizedDifference(["B8", "B4"])
+        .rename("NDVI")
+    )
+
+    change = late.subtract(early).rename("NDVI_change")
+
+    vis = change.visualize(
+        min=-0.4,
+        max=0.4,
+        palette=[
+            "#8b0000",
+            "#d73027",
+            "#f46d43",
+            "#fdae61",
+            "#ffffbf",
+            "#a6d96a",
+            "#66bd63",
+            "#1a9850"
+        ]
+    )
+
+    return add_polygon_overlay(vis, geom)
+
+
 def image_thumb_url(image: ee.Image, geom: ee.Geometry, dimensions: int = 1200) -> str:
     return image.getThumbURL({
         "region": geom.bounds(),
