@@ -303,13 +303,21 @@ def build_landcover_bar(df):
     return fig
 
 
-def fetch_image_bytes(url: str):
+def fetch_image_bytes(url: str, timeout: int = 90):
     try:
-        r = requests.get(url, timeout=60)
+        r = requests.get(url, timeout=timeout)
         r.raise_for_status()
         buf = BytesIO(r.content)
         buf.seek(0)
         return buf
+    except Exception:
+        return None
+
+
+def fetch_pdf_ee_image_bytes(image, geom, dimensions=900):
+    try:
+        url = image_thumb_url(image, geom, dimensions=dimensions)
+        return fetch_image_bytes(url, timeout=120)
     except Exception:
         return None
 
@@ -509,21 +517,18 @@ if run:
             metrics=metrics,
         )
 
-        satellite_url = image_thumb_url(
-            satellite_with_polygon(ee_geom, LAST_FULL_YEAR), ee_geom, 1400
-        )
-        ndvi_url = image_thumb_url(
-            ndvi_with_polygon(ee_geom, LAST_FULL_YEAR), ee_geom, 1400
-        )
-        landcover_url = image_thumb_url(
-            landcover_with_polygon(ee_geom), ee_geom, 1400
-        )
-        forest_loss_url = image_thumb_url(
-            forest_loss_with_polygon(ee_geom), ee_geom, 1400
-        )
-        veg_change_url = image_thumb_url(
-            vegetation_change_with_polygon(ee_geom, int(hist_start), int(hist_end)), ee_geom, 1400
-        )
+        # Dashboard images
+        satellite_img = satellite_with_polygon(ee_geom, LAST_FULL_YEAR)
+        ndvi_img = ndvi_with_polygon(ee_geom, LAST_FULL_YEAR)
+        landcover_img = landcover_with_polygon(ee_geom)
+        forest_loss_img = forest_loss_with_polygon(ee_geom)
+        veg_change_img = vegetation_change_with_polygon(ee_geom, int(hist_start), int(hist_end))
+
+        satellite_url = image_thumb_url(satellite_img, ee_geom, 1400)
+        ndvi_url = image_thumb_url(ndvi_img, ee_geom, 1400)
+        landcover_url = image_thumb_url(landcover_img, ee_geom, 1400)
+        forest_loss_url = image_thumb_url(forest_loss_img, ee_geom, 1400)
+        veg_change_url = image_thumb_url(veg_change_img, ee_geom, 1400)
 
         ndvi_hist_df = prep_year_df(fc_to_dataframe(
             landsat_annual_ndvi_collection(ee_geom, max(int(hist_start), 1984), int(hist_end))
@@ -579,31 +584,32 @@ if run:
             },
         ]
 
+        # PDF-specific lighter images
         image_payloads = [
             {
                 "title": "Satellite image with polygon",
                 "description": "This is a true-colour satellite view of the selected site. The red outline shows the assessment area.",
-                "bytes": fetch_image_bytes(satellite_url),
+                "bytes": fetch_pdf_ee_image_bytes(satellite_img, ee_geom, dimensions=850),
             },
             {
                 "title": "NDVI image with polygon",
                 "description": "This image shows vegetation condition. Greener areas generally mean healthier or denser vegetation. Redder areas generally mean weaker vegetation.",
-                "bytes": fetch_image_bytes(ndvi_url),
+                "bytes": fetch_pdf_ee_image_bytes(ndvi_img, ee_geom, dimensions=850),
             },
             {
                 "title": "Land-cover image with polygon",
                 "description": "This image shows the main land-cover types in the selected area, such as tree cover, cropland, built-up land, and water.",
-                "bytes": fetch_image_bytes(landcover_url),
+                "bytes": fetch_pdf_ee_image_bytes(landcover_img, ee_geom, dimensions=850),
             },
             {
                 "title": "Vegetation change map with polygon",
                 "description": "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement.",
-                "bytes": fetch_image_bytes(veg_change_url),
+                "bytes": fetch_pdf_ee_image_bytes(veg_change_img, ee_geom, dimensions=850),
             },
             {
                 "title": "Forest loss map with polygon",
                 "description": "This image highlights where forest loss has been detected in or around the selected area.",
-                "bytes": fetch_image_bytes(forest_loss_url),
+                "bytes": fetch_pdf_ee_image_bytes(forest_loss_img, ee_geom, dimensions=850),
             },
         ]
 
