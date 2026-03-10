@@ -68,6 +68,7 @@ CATEGORIES = [
 def init_state():
     defaults = {
         "preset_selector": "Select Business / Area",
+        "active_preset": "Select Business / Area",
         "category_selector": "General SME",
         "lat_input": "",
         "lon_input": "",
@@ -82,7 +83,7 @@ def init_state():
 
 
 def apply_preset(preset: str):
-    st.session_state["preset_selector"] = preset
+    st.session_state["active_preset"] = preset
 
     if preset in PRESET_TO_CATEGORY:
         st.session_state["category_selector"] = PRESET_TO_CATEGORY[preset]
@@ -98,6 +99,7 @@ def apply_preset(preset: str):
 
 def preset_changed():
     preset = st.session_state["preset_selector"]
+    st.session_state["active_preset"] = preset
     if preset != "Select Business / Area":
         apply_preset(preset)
 
@@ -364,7 +366,7 @@ if run:
         st.warning("Historical start year must be earlier than or equal to end year.")
         st.stop()
 
-    preset = st.session_state.preset_selector
+    preset = st.session_state.active_preset
     category = st.session_state.category_selector
 
     with st.spinner("Running assessment..."):
