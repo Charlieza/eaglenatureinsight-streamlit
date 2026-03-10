@@ -169,7 +169,6 @@ def build_risk_and_recommendations(preset: str, category: str, metrics: dict) ->
             "Consider integrating environmental restoration and cooling measures into the sustainability value proposition.",
         ])
 
-    # de-duplicate
     unique_recs = []
     seen = set()
     for rec in recs:
