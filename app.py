@@ -34,7 +34,7 @@ from utils.pdf_report import build_pdf_report
 
 st.set_page_config(page_title="EagleNatureInsight", layout="wide")
 
-APP_TITLE = "EagleNatureInsight™"
+APP_TITLE = "EagleNatureInsight"
 APP_SUBTITLE = "Nature Intelligence Dashboard for SMEs"
 APP_TAGLINE = "Locate • Evaluate • Assess • Prepare"
 
@@ -221,10 +221,10 @@ def prep_year_df(df: pd.DataFrame) -> pd.DataFrame:
 def metric_card(label: str, value: str, subtext: str = ""):
     st.markdown(
         f"""
-        <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;height:110px;">
+        <div style="padding:14px;border:1px solid #e5e7eb;border-radius:18px;background:#ffffff;height:116px;box-shadow:0 6px 18px rgba(17,24,39,0.06);">
             <div style="font-size:12px;color:#6b7280;">{label}</div>
-            <div style="font-size:26px;font-weight:700;color:#111827;margin-top:4px;">{value}</div>
-            <div style="font-size:11px;color:#6b7280;margin-top:4px;">{subtext}</div>
+            <div style="font-size:28px;font-weight:700;color:#111827;margin-top:6px;">{value}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:5px;">{subtext}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -311,17 +311,60 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-header_left, header_right = st.columns([2, 6])
-with header_left:
+st.markdown(
+    """
+    <style>
+    .top-hero {
+        background: linear-gradient(135deg, #163d63 0%, #235784 55%, #2f6ea2 100%);
+        border-radius: 24px;
+        padding: 24px 28px;
+        color: white;
+        box-shadow: 0 10px 28px rgba(22,61,99,0.20);
+        margin-bottom: 18px;
+    }
+    .top-sub {
+        color: rgba(255,255,255,0.88);
+        font-size: 0.98rem;
+        margin-top: 2px;
+    }
+    .top-tag {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.14);
+        font-size: 0.88rem;
+        color: white;
+    }
+    .soft-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        padding: 16px 18px;
+        box-shadow: 0 6px 18px rgba(17,24,39,0.05);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+hero_left, hero_right = st.columns([1.2, 5])
+
+with hero_left:
     if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), use_container_width=True)
+        st.image(str(LOGO_PATH), width=150)
 
-with header_right:
-    st.title(APP_TITLE)
-    st.caption(APP_SUBTITLE)
-    st.markdown(f"**{APP_TAGLINE}**")
-
-st.markdown("---")
+with hero_right:
+    st.markdown(
+        f"""
+        <div class="top-hero">
+            <div style="font-size:2rem;font-weight:800;line-height:1.1;">{APP_TITLE}</div>
+            <div class="top-sub">{APP_SUBTITLE}</div>
+            <div class="top-tag">{APP_TAGLINE}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 st.markdown("### LEAP Process")
 c1, c2, c3, c4 = st.columns(4)
@@ -580,7 +623,7 @@ if results is not None:
     )
 
     with tab1:
-        st.markdown("## EagleNatureInsight™ Overview")
+        st.markdown("## EagleNatureInsight Overview")
         st.write(f"**Business preset:** {preset}")
         st.write(f"**Business category:** {category}")
 
