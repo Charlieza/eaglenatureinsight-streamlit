@@ -13,6 +13,7 @@ from reportlab.platypus import (
     Image,
     Table,
     TableStyle,
+    PageBreak,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
@@ -47,6 +48,7 @@ def build_pdf_report(
     landcover_url: str,
     forest_loss_url: str,
     vegetation_change_url: str,
+    chart_images: dict | None = None,
 ) -> bytes:
     buffer = BytesIO()
 
@@ -89,7 +91,7 @@ def build_pdf_report(
 
     logo_path = Path("assets/logo.png")
     if logo_path.exists():
-        story.append(Image(str(logo_path), width=42 * mm, height=42 * mm))
+        story.append(Image(str(logo_path), width=38 * mm, height=38 * mm))
         story.append(Spacer(1, 3 * mm))
 
     story.append(Paragraph("EagleNatureInsight™ Report", title_style))
@@ -129,15 +131,19 @@ def build_pdf_report(
     story.append(summary_table)
     story.append(Spacer(1, 4 * mm))
 
+    story.append(Paragraph("Simple reading guide", h_style))
+    story.append(Paragraph("Green or higher vegetation values usually suggest stronger plant cover. Redder or lower vegetation values can suggest stress or limited vegetation.", body_style))
+    story.append(Paragraph("Rising heat, falling vegetation, or visible tree loss may point to higher environmental pressure around the site.", body_style))
+    story.append(Paragraph("These outputs are for screening and discussion. They help identify where closer review may be useful.", body_style))
+
     story.append(Paragraph("LEAP Outputs", h_style))
-    story.append(Paragraph("<b>Locate</b>: The selected area has been defined and screened for land cover, visible nature context, and surrounding landscape conditions.", body_style))
-    story.append(Paragraph("<b>Evaluate</b>: Current and historical environmental conditions have been reviewed using the dashboard indicators.", body_style))
-    story.append(Paragraph("<b>Assess</b>: The dashboard interprets the evidence into a business-facing nature risk signal and identifies the most relevant issues.", body_style))
-    story.append(Paragraph("<b>Prepare</b>: The dashboard provides category-specific next actions based on the current signals and business context.", body_style))
-    story.append(Spacer(1, 2 * mm))
+    story.append(Paragraph("<b>Locate</b>: The selected area has been defined and checked against land cover and surrounding environmental context.", body_style))
+    story.append(Paragraph("<b>Evaluate</b>: Current and historical environmental conditions have been reviewed.", body_style))
+    story.append(Paragraph("<b>Assess</b>: The dashboard translates the evidence into simple risk signals.", body_style))
+    story.append(Paragraph("<b>Prepare</b>: The dashboard gives practical next-step recommendations.", body_style))
 
     if risk.get("flags"):
-        story.append(Paragraph("Key Flags", h_style))
+        story.append(Paragraph("Key flags", h_style))
         for flag in risk["flags"]:
             story.append(Paragraph(f"• {flag}", body_style))
 
@@ -146,23 +152,44 @@ def build_pdf_report(
         for rec in risk["recs"]:
             story.append(Paragraph(f"• {rec}", body_style))
 
-    story.append(Spacer(1, 4 * mm))
+    story.append(PageBreak())
 
     image_specs = [
-        ("Satellite image with polygon", satellite_url),
-        ("NDVI image with polygon", ndvi_url),
-        ("Land-cover image with polygon", landcover_url),
-        ("Vegetation change map with polygon", vegetation_change_url),
-        ("Forest loss map with polygon", forest_loss_url),
+        ("Satellite image with polygon", satellite_url, "This is a true-colour satellite view of the selected site. The red outline shows the assessment area."),
+        ("NDVI image with polygon", ndvi_url, "This image shows vegetation condition. Greener tones generally mean healthier or denser vegetation. Redder tones suggest weaker vegetation."),
+        ("Land-cover image with polygon", landcover_url, "This image shows the main land-cover types in the selected area, such as tree cover, cropland, built-up land, and water."),
+        ("Vegetation change map with polygon", vegetation_change_url, "This image compares earlier and more recent vegetation condition. Redder areas suggest decline. Greener areas suggest improvement."),
+        ("Forest loss map with polygon", forest_loss_url, "This image highlights where forest loss has been detected in or around the selected area."),
     ]
 
-    for title, url in image_specs:
+    for title, url, expl in image_specs:
         img_data = _download_image(url)
         if img_data is not None:
             story.append(Paragraph(title, h_style))
+            story.append(Paragraph(expl, body_style))
             img = Image(img_data, width=170 * mm, height=95 * mm)
             story.append(img)
-            story.append(Spacer(1, 3 * mm))
+            story.append(Spacer(1, 4 * mm))
+
+    if chart_images:
+        story.append(PageBreak())
+        story.append(Paragraph("Historical plots", h_style))
+
+        ordered = [
+            ("ndvi", "Historical NDVI"),
+            ("rain", "Historical rainfall"),
+            ("lst", "Historical land surface temperature"),
+            ("forest", "Historical forest loss"),
+            ("water", "Historical water presence"),
+            ("landcover", "Current land-cover composition"),
+        ]
+
+        for key, title in ordered:
+            img_data = chart_images.get(key)
+            if img_data is not None:
+                story.append(Paragraph(title, h_style))
+                story.append(Image(img_data, width=170 * mm, height=95 * mm))
+                story.append(Spacer(1, 4 * mm))
 
     doc.build(story)
     pdf_bytes = buffer.getvalue()
