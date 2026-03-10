@@ -6,20 +6,18 @@ def initialize_ee_from_secrets(st) -> None:
     if getattr(initialize_ee_from_secrets, "_initialized", False):
         return
 
-    ee_secret = st.secrets["earthengine"]
-
     service_account_info = {
-        "type": ee_secret["type"],
-        "project_id": ee_secret["project_id"],
-        "private_key_id": ee_secret["private_key_id"],
-        "private_key": ee_secret["private_key"],
-        "client_email": ee_secret["client_email"],
-        "client_id": ee_secret["client_id"],
-        "auth_uri": ee_secret["auth_uri"],
-        "token_uri": ee_secret["token_uri"],
-        "auth_provider_x509_cert_url": ee_secret["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": ee_secret["client_x509_cert_url"],
-        "universe_domain": ee_secret["universe_domain"],
+        "type": st.secrets["earthengine"]["type"],
+        "project_id": st.secrets["earthengine"]["project_id"],
+        "private_key_id": st.secrets["earthengine"]["private_key_id"],
+        "private_key": st.secrets["earthengine"]["private_key"],
+        "client_email": st.secrets["earthengine"]["client_email"],
+        "client_id": st.secrets["earthengine"]["client_id"],
+        "auth_uri": st.secrets["earthengine"]["auth_uri"],
+        "token_uri": st.secrets["earthengine"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["earthengine"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["earthengine"]["client_x509_cert_url"],
+        "universe_domain": st.secrets["earthengine"]["universe_domain"],
     }
 
     credentials = ee.ServiceAccountCredentials(
@@ -27,26 +25,43 @@ def initialize_ee_from_secrets(st) -> None:
         key_data=json.dumps(service_account_info),
     )
 
-    ee.Initialize(credentials, project=service_account_info["project_id"])
+    ee.Initialize(credentials)
     initialize_ee_from_secrets._initialized = True
 
 
 def get_datasets():
-    return {
-        "S2": ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED"),
-        "CHIRPS": ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY"),
-        "WORLDCOVER": ee.Image("ESA/WorldCover/v200/2021").select("Map"),
-        "GSW": ee.Image("JRC/GSW1_4/GlobalSurfaceWater").select("occurrence"),
-        "GSW_YEARLY": ee.ImageCollection("JRC/GSW1_4/YearlyHistory"),
-        "HANSEN": ee.Image("UMD/hansen/global_forest_change_2024_v1_12"),
-        "MODIS_LST": ee.ImageCollection("MODIS/061/MOD11A2"),
-        "LT05": ee.ImageCollection("LANDSAT/LT05/C02/T1_L2"),
-        "LE07": ee.ImageCollection("LANDSAT/LE07/C02/T1_L2"),
-        "LC08": ee.ImageCollection("LANDSAT/LC08/C02/T1_L2"),
-        "LC09": ee.ImageCollection("LANDSAT/LC09/C02/T1_L2"),
-        "BIO_PROXY": ee.FeatureCollection("RESOLVE/ECOREGIONS/2017")
+    s2 = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+    chirps = ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY")
+    worldcover = ee.Image("ESA/WorldCover/v200/2021").select("Map")
+    gsw = ee.Image("JRC/GSW1_4/GlobalSurfaceWater").select("occurrence")
+    gsw_yearly = ee.ImageCollection("JRC/GSW1_4/YearlyHistory")
+    hansen = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
+    modis_lst = ee.ImageCollection("MODIS/061/MOD11A2")
+
+    lt05 = ee.ImageCollection("LANDSAT/LT05/C02/T1_L2")
+    le07 = ee.ImageCollection("LANDSAT/LE07/C02/T1_L2")
+    lc08 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+    lc09 = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2")
+
+    bio_proxy = (
+        ee.FeatureCollection("RESOLVE/ECOREGIONS/2017")
         .reduceToImage(properties=["BIOME_NUM"], reducer=ee.Reducer.first())
-        .rename("bio_proxy"),
+        .rename("bio_proxy")
+    )
+
+    return {
+        "S2": s2,
+        "CHIRPS": chirps,
+        "WORLDCOVER": worldcover,
+        "GSW": gsw,
+        "GSW_YEARLY": gsw_yearly,
+        "HANSEN": hansen,
+        "MODIS_LST": modis_lst,
+        "LT05": lt05,
+        "LE07": le07,
+        "LC08": lc08,
+        "LC09": lc09,
+        "BIO_PROXY": bio_proxy,
     }
 
 
@@ -89,7 +104,7 @@ def current_ndvi_image_and_mean(geom: ee.Geometry, last_full_year: int):
         reducer=ee.Reducer.mean(),
         geometry=geom,
         scale=10,
-        maxPixels=1e13,
+        maxPixels=1e13
     ).get("NDVI")
     return ndvi, mean
 
@@ -108,7 +123,7 @@ def satellite_with_polygon(geom: ee.Geometry, last_full_year: int) -> ee.Image:
     rgb = current_sentinel_rgb(geom, last_full_year).visualize(
         bands=["B4", "B3", "B2"],
         min=0,
-        max=3000,
+        max=3000
     )
     return add_polygon_overlay(rgb, geom)
 
@@ -118,7 +133,7 @@ def ndvi_with_polygon(geom: ee.Geometry, last_full_year: int) -> ee.Image:
     vis = ndvi.visualize(
         min=0,
         max=0.8,
-        palette=["#d73027", "#fee08b", "#1a9850"],
+        palette=["#d73027", "#fee08b", "#1a9850"]
     )
     return add_polygon_overlay(vis, geom)
 
@@ -130,8 +145,8 @@ def landcover_with_polygon(geom: ee.Geometry) -> ee.Image:
         max=100,
         palette=[
             "#006400", "#ffbb22", "#ffff4c", "#f096ff", "#fa0000",
-            "#b4b4b4", "#f0f0f0", "#0064c8", "#0096a0", "#00cf75",
-        ],
+            "#b4b4b4", "#f0f0f0", "#0064c8", "#0096a0", "#00cf75"
+        ]
     )
     return add_polygon_overlay(vis, geom)
 
@@ -144,25 +159,81 @@ def forest_loss_with_polygon(geom: ee.Geometry) -> ee.Image:
     return add_polygon_overlay(vis, geom)
 
 
+def vegetation_change_with_polygon(geom: ee.Geometry, hist_start: int, hist_end: int) -> ee.Image:
+    ds = get_datasets()
+    start_year = max(hist_start, 2016)
+    end_year = hist_end
+
+    early_end_year = min(start_year + 1, end_year)
+    late_start_year = max(end_year - 1, start_year)
+
+    early = (
+        ds["S2"]
+        .filterBounds(geom)
+        .filterDate(f"{start_year}-01-01", f"{early_end_year}-12-31")
+        .map(mask_s2_clouds)
+        .median()
+        .normalizedDifference(["B8", "B4"])
+        .rename("NDVI")
+    )
+
+    late = (
+        ds["S2"]
+        .filterBounds(geom)
+        .filterDate(f"{late_start_year}-01-01", f"{end_year}-12-31")
+        .map(mask_s2_clouds)
+        .median()
+        .normalizedDifference(["B8", "B4"])
+        .rename("NDVI")
+    )
+
+    change = late.subtract(early).rename("NDVI_change")
+
+    vis = change.visualize(
+        min=-0.4,
+        max=0.4,
+        palette=[
+            "#8b0000",
+            "#d73027",
+            "#f46d43",
+            "#fdae61",
+            "#ffffbf",
+            "#a6d96a",
+            "#66bd63",
+            "#1a9850"
+        ]
+    )
+
+    return add_polygon_overlay(vis, geom)
+
+
 def image_thumb_url(image: ee.Image, geom: ee.Geometry, dimensions: int = 1200) -> str:
     return image.getThumbURL({
         "region": geom.bounds(),
         "dimensions": dimensions,
-        "format": "png",
+        "format": "png"
     })
 
 
 def prep_l57(img: ee.Image) -> ee.Image:
     qa = img.select("QA_PIXEL")
     mask = qa.bitwiseAnd(1 << 3).eq(0).And(qa.bitwiseAnd(1 << 4).eq(0))
-    sr = img.select(["SR_B3", "SR_B4"], ["RED", "NIR"]).multiply(0.0000275).add(-0.2)
+
+    sr = img.select(["SR_B3", "SR_B4"], ["RED", "NIR"]) \
+        .multiply(0.0000275) \
+        .add(-0.2)
+
     return sr.updateMask(mask).copyProperties(img, img.propertyNames())
 
 
 def prep_l89(img: ee.Image) -> ee.Image:
     qa = img.select("QA_PIXEL")
     mask = qa.bitwiseAnd(1 << 3).eq(0).And(qa.bitwiseAnd(1 << 4).eq(0))
-    sr = img.select(["SR_B4", "SR_B5"], ["RED", "NIR"]).multiply(0.0000275).add(-0.2)
+
+    sr = img.select(["SR_B4", "SR_B5"], ["RED", "NIR"]) \
+        .multiply(0.0000275) \
+        .add(-0.2)
+
     return sr.updateMask(mask).copyProperties(img, img.propertyNames())
 
 
@@ -192,9 +263,9 @@ def landsat_annual_ndvi_collection(geom: ee.Geometry, start_year: int, end_year:
                 reducer=ee.Reducer.mean(),
                 geometry=geom,
                 scale=30,
-                maxPixels=1e13,
+                maxPixels=1e13
             ).get("NDVI"),
-            None,
+            None
         )
 
         return ee.Feature(None, {"year": y, "value": mean_val, "metric": "ndvi"})
@@ -220,13 +291,13 @@ def annual_rain_collection(geom: ee.Geometry, start_year: int, end_year: int) ->
             reducer=ee.Reducer.mean(),
             geometry=geom,
             scale=5566,
-            maxPixels=1e13,
+            maxPixels=1e13
         ).get("precipitation")
 
         return ee.Feature(None, {
             "year": y,
             "value": ee.Algorithms.If(mean, mean, None),
-            "metric": "rain_mm",
+            "metric": "rain_mm"
         })
 
     return ee.FeatureCollection(years.map(per_year))
@@ -253,13 +324,13 @@ def annual_lst_collection(geom: ee.Geometry, start_year: int, end_year: int) -> 
             reducer=ee.Reducer.mean(),
             geometry=geom,
             scale=1000,
-            maxPixels=1e13,
+            maxPixels=1e13
         ).get("LST_C")
 
         return ee.Feature(None, {
             "year": y,
             "value": ee.Algorithms.If(mean, mean, None),
-            "metric": "lst_c",
+            "metric": "lst_c"
         })
 
     return ee.FeatureCollection(years.map(per_year))
@@ -282,13 +353,13 @@ def forest_loss_by_year_collection(geom: ee.Geometry, start_year: int, end_year:
             reducer=ee.Reducer.sum(),
             geometry=geom,
             scale=30,
-            maxPixels=1e13,
+            maxPixels=1e13
         ).get("area")
 
         return ee.Feature(None, {
             "year": y,
             "value": ee.Algorithms.If(loss_ha, loss_ha, 0),
-            "metric": "forest_loss_ha",
+            "metric": "forest_loss_ha"
         })
 
     return ee.FeatureCollection(years.map(per_year))
@@ -310,7 +381,7 @@ def water_history_collection(geom: ee.Geometry, start_year: int, end_year: int) 
             reducer=ee.Reducer.mean(),
             geometry=geom,
             scale=30,
-            maxPixels=1e13,
+            maxPixels=1e13
         ).get("waterClass")
 
         safe_val = ee.Algorithms.If(water_pct, ee.Number(water_pct).multiply(100), None)
@@ -318,7 +389,7 @@ def water_history_collection(geom: ee.Geometry, start_year: int, end_year: int) 
         return ee.Feature(None, {
             "year": year,
             "value": safe_val,
-            "metric": "water_pct",
+            "metric": "water_pct"
         })
 
     return ee.FeatureCollection(coll.map(per_img))
@@ -331,7 +402,7 @@ def landcover_pct(geom: ee.Geometry, cls: int):
             reducer=ee.Reducer.sum(),
             geometry=geom,
             scale=10,
-            maxPixels=1e13,
+            maxPixels=1e13
         ).get("area")
     )
 
@@ -340,11 +411,48 @@ def landcover_pct(geom: ee.Geometry, cls: int):
             reducer=ee.Reducer.sum(),
             geometry=geom,
             scale=10,
-            maxPixels=1e13,
+            maxPixels=1e13
         ).get("area")
     )
 
     return class_area.divide(total_area).multiply(100)
+
+
+def landcover_feature_collection(geom: ee.Geometry) -> ee.FeatureCollection:
+    ds = get_datasets()
+    classes = [10, 20, 30, 40, 50, 60, 80, 90, 95, 100]
+    class_names = {
+        10: "Tree cover",
+        20: "Shrubland",
+        30: "Grassland",
+        40: "Cropland",
+        50: "Built-up",
+        60: "Bare/sparse vegetation",
+        80: "Permanent water",
+        90: "Herbaceous wetland",
+        95: "Mangroves",
+        100: "Moss & lichen",
+    }
+
+    area_image = ee.Image.pixelArea().divide(10000)
+
+    def per_class(cls):
+        cls = ee.Number(cls)
+        area = area_image.updateMask(ds["WORLDCOVER"].eq(cls)).reduceRegion(
+            reducer=ee.Reducer.sum(),
+            geometry=geom,
+            scale=10,
+            maxPixels=1e13
+        ).get("area")
+
+        return ee.Feature(None, {
+            "class_value": cls,
+            "class_name": class_names[int(cls.getInfo())],
+            "area_ha": area
+        })
+
+    features = [per_class(cls) for cls in classes]
+    return ee.FeatureCollection(features)
 
 
 def forest_loss_summary(geom: ee.Geometry):
@@ -357,7 +465,7 @@ def forest_loss_summary(geom: ee.Geometry):
         reducer=ee.Reducer.sum(),
         geometry=geom,
         scale=30,
-        maxPixels=1e13,
+        maxPixels=1e13
     ).get("area")
 
     loss_mask = ds["HANSEN"].select("lossyear").gt(0)
@@ -365,7 +473,7 @@ def forest_loss_summary(geom: ee.Geometry):
         reducer=ee.Reducer.sum(),
         geometry=geom,
         scale=30,
-        maxPixels=1e13,
+        maxPixels=1e13
     ).get("area")
 
     loss_pct = ee.Number(loss_ha).divide(ee.Number(forest_ha)).multiply(100)
@@ -378,7 +486,7 @@ def surface_water_occurrence_mean(geom: ee.Geometry):
         reducer=ee.Reducer.mean(),
         geometry=geom,
         scale=30,
-        maxPixels=1e13,
+        maxPixels=1e13
     ).get("occurrence")
 
 
@@ -388,7 +496,7 @@ def bio_proxy_mean(geom: ee.Geometry):
         reducer=ee.Reducer.mean(),
         geometry=geom,
         scale=250,
-        maxPixels=1e13,
+        maxPixels=1e13
     ).get("bio_proxy")
 
 
@@ -400,7 +508,7 @@ def series_recent_vs_early_delta(fc: ee.FeatureCollection):
         count.gte(6),
         ee.Number(ee.FeatureCollection(sorted_fc.toList(3, count.subtract(3))).aggregate_mean("value"))
         .subtract(ee.Number(ee.FeatureCollection(sorted_fc.toList(3, 0)).aggregate_mean("value"))),
-        None,
+        None
     )
 
 
@@ -428,7 +536,7 @@ def compute_metrics(geom: ee.Geometry, hist_start: int, hist_end: int, last_full
             reducer=ee.Reducer.sum(),
             geometry=geom,
             scale=10,
-            maxPixels=1e13,
+            maxPixels=1e13
         ).get("area"),
         "ndvi_current": ndvi_mean,
         "ndvi_trend": series_recent_vs_early_delta(ndvi_hist),
@@ -441,7 +549,7 @@ def compute_metrics(geom: ee.Geometry, hist_start: int, hist_end: int, last_full
         "bio_proxy": bio_proxy_mean(geom),
         "forest_ha": forest_summary["forest_ha"],
         "forest_loss_ha": forest_summary["loss_ha"],
-        "forest_loss_pct": forest_summary["loss_pct"],
+        "forest_loss_pct": forest_summary["loss_pct"]
     })
 
     return metrics.getInfo()
