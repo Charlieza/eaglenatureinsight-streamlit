@@ -352,7 +352,7 @@ hero_left, hero_right = st.columns([1.2, 5])
 
 with hero_left:
     if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width=150)
+        st.image(str(LOGO_PATH), width=220)
 
 with hero_right:
     st.markdown(
