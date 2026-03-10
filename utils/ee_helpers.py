@@ -418,6 +418,43 @@ def landcover_pct(geom: ee.Geometry, cls: int):
     return class_area.divide(total_area).multiply(100)
 
 
+def landcover_feature_collection(geom: ee.Geometry) -> ee.FeatureCollection:
+    ds = get_datasets()
+    classes = [10, 20, 30, 40, 50, 60, 80, 90, 95, 100]
+    class_names = {
+        10: "Tree cover",
+        20: "Shrubland",
+        30: "Grassland",
+        40: "Cropland",
+        50: "Built-up",
+        60: "Bare/sparse vegetation",
+        80: "Permanent water",
+        90: "Herbaceous wetland",
+        95: "Mangroves",
+        100: "Moss & lichen",
+    }
+
+    area_image = ee.Image.pixelArea().divide(10000)
+
+    def per_class(cls):
+        cls = ee.Number(cls)
+        area = area_image.updateMask(ds["WORLDCOVER"].eq(cls)).reduceRegion(
+            reducer=ee.Reducer.sum(),
+            geometry=geom,
+            scale=10,
+            maxPixels=1e13
+        ).get("area")
+
+        return ee.Feature(None, {
+            "class_value": cls,
+            "class_name": class_names[int(cls.getInfo())],
+            "area_ha": area
+        })
+
+    features = [per_class(cls) for cls in classes]
+    return ee.FeatureCollection(features)
+
+
 def forest_loss_summary(geom: ee.Geometry):
     ds = get_datasets()
     area_ha = ee.Image.pixelArea().divide(10000)
