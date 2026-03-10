@@ -241,9 +241,32 @@ def fmt_num(val, digits=1, suffix=""):
 
 def fig_to_png_bytes(fig):
     try:
-        return BytesIO(fig.to_image(format="png", width=1200, height=650, scale=2))
+        img = fig.to_image(
+            format="png",
+            width=1400,
+            height=800,
+            scale=2,
+            engine="kaleido",
+        )
+        return BytesIO(img)
     except Exception:
         return None
+
+
+def build_landcover_bar(df):
+    fig = px.bar(
+        df.sort_values("area_ha", ascending=False),
+        x="class_name",
+        y="area_ha",
+        title="Current Land Cover Composition"
+    )
+    fig.update_layout(
+        xaxis_title="Land-cover class",
+        yaxis_title="Area (ha)",
+        showlegend=False,
+        margin=dict(l=40, r=20, t=60, b=80),
+    )
+    return fig
 
 
 init_state()
@@ -322,10 +345,10 @@ with mode_col2:
         max_value=50000,
         step=100,
         key="buffer_input",
-        disabled=(st.session_state.draw_mode == "Draw polygon"),
+        disabled=(st.session_state["draw_mode"] == "Draw polygon"),
     )
 
-if st.session_state.draw_mode == "Enter coordinates":
+if st.session_state["draw_mode"] == "Enter coordinates":
     lat_col, lon_col = st.columns(2)
     with lat_col:
         st.text_input("Latitude", key="lat_input", placeholder="-29.9167")
@@ -444,46 +467,25 @@ if run:
 
         chart_images = {}
 
-        if not ndvi_hist_df.empty:
-            fig_ndvi = px.line(ndvi_hist_df, x="year", y="value", title="Historical NDVI (Landsat)")
+        fig_ndvi = px.line(ndvi_hist_df, x="year", y="value", title="Historical NDVI (Landsat)") if not ndvi_hist_df.empty else None
+        fig_rain = px.line(rain_hist_df, x="year", y="value", title="Historical Rainfall (CHIRPS)") if not rain_hist_df.empty else None
+        fig_lst = px.line(lst_hist_df, x="year", y="value", title="Historical Land Surface Temperature (MODIS)") if not lst_hist_df.empty else None
+        fig_forest = px.bar(forest_hist_df, x="year", y="value", title="Historical Forest Loss by Year (Hansen)") if not forest_hist_df.empty else None
+        fig_water = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)") if not water_hist_df.empty else None
+        fig_lc = build_landcover_bar(lc_df) if not lc_df.empty else None
+
+        if fig_ndvi is not None:
             chart_images["ndvi"] = fig_to_png_bytes(fig_ndvi)
-        else:
-            fig_ndvi = None
-
-        if not rain_hist_df.empty:
-            fig_rain = px.line(rain_hist_df, x="year", y="value", title="Historical Rainfall (CHIRPS)")
+        if fig_rain is not None:
             chart_images["rain"] = fig_to_png_bytes(fig_rain)
-        else:
-            fig_rain = None
-
-        if not lst_hist_df.empty:
-            fig_lst = px.line(lst_hist_df, x="year", y="value", title="Historical Land Surface Temperature (MODIS)")
+        if fig_lst is not None:
             chart_images["lst"] = fig_to_png_bytes(fig_lst)
-        else:
-            fig_lst = None
-
-        if not forest_hist_df.empty:
-            fig_forest = px.bar(forest_hist_df, x="year", y="value", title="Historical Forest Loss by Year (Hansen)")
+        if fig_forest is not None:
             chart_images["forest"] = fig_to_png_bytes(fig_forest)
-        else:
-            fig_forest = None
-
-        if not water_hist_df.empty:
-            fig_water = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)")
+        if fig_water is not None:
             chart_images["water"] = fig_to_png_bytes(fig_water)
-        else:
-            fig_water = None
-
-        if not lc_df.empty:
-            fig_lc = px.bar(
-                lc_df.sort_values("area_ha", ascending=False),
-                x="class_name",
-                y="area_ha",
-                title="Current Land Cover Composition"
-            )
+        if fig_lc is not None:
             chart_images["landcover"] = fig_to_png_bytes(fig_lc)
-        else:
-            fig_lc = None
 
         pdf_bytes = build_pdf_report(
             preset=preset,
@@ -614,12 +616,10 @@ if results is not None:
 
     with tab3:
         st.markdown("## Image outputs")
-
-        st.markdown("### What the colours mean")
-        st.write("**NDVI image:** greener areas usually mean healthier or denser vegetation; redder areas usually mean weaker vegetation.")
-        st.write("**Vegetation change map:** greener areas suggest improvement over time; redder areas suggest decline.")
-        st.write("**Land-cover image:** colours represent different land-cover classes such as tree cover, cropland, built-up land, and water.")
-        st.write("**Forest loss map:** highlighted areas show where forest loss has been detected.")
+        st.write("**NDVI image:** greener usually means stronger vegetation; redder usually means weaker vegetation.")
+        st.write("**Vegetation change map:** green usually means improvement; red usually means decline.")
+        st.write("**Land-cover image:** colours represent classes such as tree cover, cropland, built-up land, and water.")
+        st.write("**Forest loss map:** highlighted areas show detected forest loss.")
 
         img1, img2 = st.columns(2)
         with img1:
@@ -689,10 +689,5 @@ if results is not None:
         st.dataframe(detail_df, use_container_width=True)
 
         if not lc_df.empty:
-            fig = px.bar(
-                lc_df.sort_values("area_ha", ascending=False),
-                x="class_name",
-                y="area_ha",
-                title="Current Land Cover Composition"
-            )
+            fig = build_landcover_bar(lc_df)
             st.plotly_chart(fig, use_container_width=True)
