@@ -530,7 +530,7 @@ if run:
         forest_loss_img = forest_loss_with_polygon(ee_geom)
         veg_change_img = vegetation_change_with_polygon(ee_geom, int(hist_start), int(hist_end))
 
-        satellite_url = image_thumb_url(satellite_img, ee_geom, 1400)
+        satellite_url = image_thumb_url(satellite_img, ee_geom, 2200)
         ndvi_url = image_thumb_url(ndvi_img, ee_geom, 1400)
         landcover_url = image_thumb_url(landcover_img, ee_geom, 1400)
         forest_loss_url = image_thumb_url(forest_loss_img, ee_geom, 1400)
