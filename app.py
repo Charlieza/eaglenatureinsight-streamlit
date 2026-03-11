@@ -952,19 +952,19 @@ if results is not None:
 
         if not ndvi_hist_df.empty:
             fig = px.line(ndvi_hist_df, x="year", y="value", title="Historical NDVI (Landsat)")
-            st.plotly_chart(fig, use_container_width=True, key="trends_ndvi_chart")
+            st.plotly_chart(fig, use_container_width=True, key="trend_ndvi_chart")
         if not rain_hist_df.empty:
             fig = px.line(rain_hist_df, x="year", y="value", title="Historical Rainfall (CHIRPS)")
-            st.plotly_chart(fig, use_container_width=True, key="trends_rain_chart")
+            st.plotly_chart(fig, use_container_width=True, key="trend_rain_chart")
         if not lst_hist_df.empty:
             fig = px.line(lst_hist_df, x="year", y="value", title="Historical Land Surface Temperature (MODIS)")
-            st.plotly_chart(fig, use_container_width=True, key="trends_lst_chart")
+            st.plotly_chart(fig, use_container_width=True, key="trend_lst_chart")
         if not forest_hist_df.empty:
             fig = px.bar(forest_hist_df, x="year", y="value", title="Historical Forest Loss by Year (Hansen)")
-            st.plotly_chart(fig, use_container_width=True, key="trends_forest_chart")
+            st.plotly_chart(fig, use_container_width=True, key="trend_forest_chart")
         if not water_hist_df.empty:
             fig = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)")
-            st.plotly_chart(fig, use_container_width=True, key="trends_water_chart")
+            st.plotly_chart(fig, use_container_width=True, key="trend_water_chart")
 
     with tab8:
         st.markdown("## Detailed results")
