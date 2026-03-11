@@ -321,6 +321,73 @@ def build_overview_content(preset: str, category: str, metrics: dict, risk: dict
     }
 
 
+def build_locate_content(preset: str, category: str, metrics: dict) -> dict:
+    tree_pct = metrics.get("tree_pct")
+    cropland_pct = metrics.get("cropland_pct")
+    built_pct = metrics.get("built_pct")
+    water_occ = metrics.get("water_occ")
+    area_ha = metrics.get("area_ha")
+
+    narrative = (
+        "This section shows where the business interfaces with nature by describing the assessment area, "
+        "the surrounding land-cover setting, and visible ecological features in the local landscape."
+    )
+
+    context_points = []
+    if tree_pct is not None:
+        if tree_pct >= 30:
+            context_points.append("The surrounding landscape includes a meaningful share of tree cover.")
+        elif tree_pct < 10:
+            context_points.append("Tree cover is limited in the surrounding landscape.")
+    if cropland_pct is not None and cropland_pct >= 20:
+        context_points.append("A notable portion of the area is used as cropland, which may shape the business-nature interface.")
+    if built_pct is not None and built_pct >= 20:
+        context_points.append("Built surfaces are an important part of the site context and may influence heat, runoff, and habitat quality.")
+    if water_occ is not None and water_occ >= 5:
+        context_points.append("Surface water is visible in or around the assessment area and may be relevant to business dependencies or impacts.")
+    elif water_occ is not None and water_occ < 5:
+        context_points.append("Visible surface water is limited, so the site may rely more strongly on rainfall, groundwater, or external supply.")
+
+    if not context_points:
+        context_points.append("The site has been located successfully and its land-cover setting can now be interpreted in relation to business activities.")
+
+    if category == "Agriculture / Agribusiness":
+        why_it_matters = (
+            "For an agribusiness, location matters because nearby vegetation, cropland, and water context influence pollination, soil protection, and production resilience."
+        )
+    elif category == "Food processing / Supply chain":
+        why_it_matters = (
+            "For a food or supply-chain business, site context matters because sourcing landscapes and surrounding ecosystem condition can affect long-term supply reliability."
+        )
+    elif category == "Manufacturing / Industrial":
+        why_it_matters = (
+            "For a manufacturing or industrial site, location matters because built-up intensity, water context, and surrounding vegetation shape operational resilience and future environmental expectations."
+        )
+    elif category == "Water / Circular economy":
+        why_it_matters = (
+            "For a water or circular-economy business, the local nature context matters because visible water, vegetation, and land-cover setting shape water stewardship opportunities and risks."
+        )
+    elif category == "Energy / Infrastructure":
+        why_it_matters = (
+            "For energy or infrastructure operations, knowing where the site interfaces with nature helps identify sensitive areas, land pressure, and potential future constraints on expansion."
+        )
+    elif category == "Property / Built environment":
+        why_it_matters = (
+            "For the built environment, the local land-cover pattern matters because it influences heat, runoff, comfort, and the scope for greening and restoration."
+        )
+    else:
+        why_it_matters = (
+            "Understanding where the site interfaces with nature helps the business identify which environmental features may matter most in later risk and action planning."
+        )
+
+    return {
+        "narrative": narrative,
+        "context_points": context_points[:4],
+        "why_it_matters": why_it_matters,
+        "area_text": fmt_num(area_ha, 1, " ha"),
+    }
+
+
 def df_chart_to_png_bytes(df, x_col, y_col, title, kind="line", x_label="Year", y_label="Value"):
     if df is None or df.empty:
         return None
@@ -772,9 +839,10 @@ if results is not None:
     water_hist_df = results["water_hist_df"]
     lc_df = results["lc_df"]
     overview = build_overview_content(preset, category, metrics, risk)
+    locate = build_locate_content(preset, category, metrics)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["Overview", "LEAP", "Images", "Trends", "Detailed Results"]
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
+        ["Overview", "Locate", "Evaluate", "Assess", "Prepare", "Images", "Trends", "Detailed Results"]
     )
 
     with tab1:
@@ -807,17 +875,38 @@ if results is not None:
         st.write(overview["business_relevance"])
 
     with tab2:
-        st.markdown("## LEAP outputs")
+        st.markdown("## Locate")
+        st.write(locate["narrative"])
 
-        st.markdown("### Locate")
-        st.write("The selected area has been defined and screened for land cover, visible nature context, and surrounding landscape conditions.")
-        st.write(f"Area of interest: {fmt_num(metrics.get('area_ha'), 1, ' ha')}")
-        st.write(f"Tree cover: {fmt_num(metrics.get('tree_pct'), 1, '%')}")
-        st.write(f"Cropland: {fmt_num(metrics.get('cropland_pct'), 1, '%')}")
-        st.write(f"Built-up: {fmt_num(metrics.get('built_pct'), 1, '%')}")
-        st.write(f"Surface water occurrence: {fmt_num(metrics.get('water_occ'), 1)}")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            metric_card("Area analysed", locate["area_text"], "Assessment area")
+        with c2:
+            metric_card("Tree cover", fmt_num(metrics.get("tree_pct"), 1, "%"), "Landscape context")
+        with c3:
+            metric_card("Surface water", fmt_num(metrics.get("water_occ"), 1), "Occurrence")
 
-        st.markdown("### Evaluate")
+        st.markdown("### Site context")
+        st.write(f"**Business preset:** {preset}")
+        st.write(f"**Business category:** {category}")
+        st.write(f"**Cropland:** {fmt_num(metrics.get('cropland_pct'), 1, '%')}")
+        st.write(f"**Built-up land:** {fmt_num(metrics.get('built_pct'), 1, '%')}")
+
+        st.markdown("### What this landscape looks like")
+        for point in locate["context_points"]:
+            st.write(f"• {point}")
+
+        st.markdown("### Why this matters")
+        st.write(locate["why_it_matters"])
+
+        st.markdown("### Current land-cover composition")
+        if not lc_df.empty:
+            fig = build_landcover_bar(lc_df)
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption("This chart shows how the selected area is currently divided across land-cover classes such as tree cover, cropland, built-up land, and water.")
+
+    with tab3:
+        st.markdown("## Evaluate")
         st.write("Current and historical environmental conditions have been reviewed using the dashboard indicators.")
         st.write(f"Current NDVI: {fmt_num(metrics.get('ndvi_current'), 3)}")
         st.write(f"Historical NDVI trend: {fmt_num(metrics.get('ndvi_trend'), 3)}")
@@ -825,7 +914,8 @@ if results is not None:
         st.write(f"Recent LST mean: {fmt_num(metrics.get('lst_mean'), 1, ' °C')}")
         st.write(f"Forest loss % of baseline forest: {fmt_num(metrics.get('forest_loss_pct'), 1, '%')}")
 
-        st.markdown("### Assess")
+    with tab4:
+        st.markdown("## Assess")
         st.write("The dashboard interprets the evidence into a business-facing nature risk signal and identifies the most relevant issues.")
         st.write(f"Nature risk score: {risk['score']} / 100")
         st.write(f"Risk band: {risk['band']}")
@@ -835,12 +925,13 @@ if results is not None:
         else:
             st.write("• No major automated flags triggered in the current rule set.")
 
-        st.markdown("### Prepare")
+    with tab5:
+        st.markdown("## Prepare")
         st.write("The dashboard provides category-specific next actions based on the current signals and business context.")
         for rec in risk["recs"]:
             st.write(f"• {rec}")
 
-    with tab3:
+    with tab6:
         st.markdown("## Image outputs")
         st.write("**NDVI image:** greener usually means stronger vegetation; redder usually means weaker vegetation.")
         st.write("**Vegetation change map:** green usually means improvement; red usually means decline.")
@@ -856,7 +947,7 @@ if results is not None:
             st.image(landcover_url, caption="Land-cover image with polygon", use_container_width=True)
             st.image(forest_loss_url, caption="Forest loss map with polygon", use_container_width=True)
 
-    with tab4:
+    with tab7:
         st.markdown("## Historical plots")
 
         if not ndvi_hist_df.empty:
@@ -875,7 +966,7 @@ if results is not None:
             fig = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)")
             st.plotly_chart(fig, use_container_width=True)
 
-    with tab5:
+    with tab8:
         st.markdown("## Detailed results")
 
         detail_df = pd.DataFrame(
@@ -917,4 +1008,3 @@ if results is not None:
         if not lc_df.empty:
             fig = build_landcover_bar(lc_df)
             st.plotly_chart(fig, use_container_width=True)
-
