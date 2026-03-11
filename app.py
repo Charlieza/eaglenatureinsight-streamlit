@@ -388,6 +388,108 @@ def build_locate_content(preset: str, category: str, metrics: dict) -> dict:
     }
 
 
+def build_evaluate_content(preset: str, category: str, metrics: dict) -> dict:
+    ndvi_current = metrics.get("ndvi_current")
+    ndvi_trend = metrics.get("ndvi_trend")
+    rain_anom_pct = metrics.get("rain_anom_pct")
+    lst_mean = metrics.get("lst_mean")
+    forest_loss_pct = metrics.get("forest_loss_pct")
+    water_occ = metrics.get("water_occ")
+
+    narrative = (
+        "This section evaluates the site’s relationship with nature by looking at the conditions the "
+        "business may depend on, the pressures visible in the landscape, and what the recent trends "
+        "suggest for business resilience."
+    )
+
+    dependencies = []
+    if category == "Agriculture / Agribusiness":
+        dependencies = [
+            "Vegetation condition matters because it supports soil protection, ecological stability, and pollination-related habitat.",
+            "Rainfall and water context matter because production depends on reliable moisture and water availability.",
+            "Tree cover can support natural buffering, shade, wind protection, and broader ecosystem resilience.",
+        ]
+    elif category == "Food processing / Supply chain":
+        dependencies = [
+            "The business depends indirectly on healthy sourcing landscapes for reliable agricultural supply.",
+            "Rainfall, vegetation condition, and land-cover stability can influence supplier productivity and input quality.",
+            "Water context matters because upstream environmental stress can affect supply reliability and processing needs.",
+        ]
+    elif category == "Manufacturing / Industrial":
+        dependencies = [
+            "The site depends on a stable surrounding environment, especially water availability and manageable heat conditions.",
+            "Vegetation and tree cover can support local cooling, runoff management, and site resilience.",
+            "Environmental stability matters because surrounding degradation can affect operations, workers, and compliance expectations.",
+        ]
+    elif category == "Water / Circular economy":
+        dependencies = [
+            "The business depends directly on water availability, water quality, and broader ecosystem condition.",
+            "Vegetation and land condition matter because they influence infiltration, runoff, and catchment health.",
+            "Heat conditions matter because higher temperatures can intensify water stress and operational pressure.",
+        ]
+    elif category == "Energy / Infrastructure":
+        dependencies = [
+            "The site depends on a stable surrounding landscape for long-term resilience and operational continuity.",
+            "Vegetation and land-cover condition matter because they shape erosion, runoff, and ecological sensitivity around assets.",
+            "Water and heat context can affect both physical resilience and future environmental expectations.",
+        ]
+    elif category == "Property / Built environment":
+        dependencies = [
+            "The site depends on surrounding ecological condition for cooling, drainage, and broader urban comfort.",
+            "Tree cover and vegetation matter because they can reduce heat and support better site livability.",
+            "Water context matters because limited natural buffering can increase runoff and drainage pressure.",
+        ]
+    else:
+        dependencies = [
+            "The business depends on a stable surrounding ecosystem context even if those links are not always visible in day-to-day operations.",
+            "Vegetation, water context, and land-cover stability can all influence resilience, costs, and long-term site performance.",
+        ]
+
+    impacts = []
+    if ndvi_trend is not None and ndvi_trend < -0.03:
+        impacts.append("Vegetation condition appears to be declining, which may indicate growing ecological stress in the landscape.")
+    if rain_anom_pct is not None and rain_anom_pct < -10:
+        impacts.append("Recent rainfall is below the long-term baseline, which may increase water stress and pressure on natural systems.")
+    if forest_loss_pct is not None and forest_loss_pct > 5:
+        impacts.append("Forest loss has been detected in the assessed landscape, suggesting pressure on tree-covered ecosystems.")
+    if lst_mean is not None and lst_mean > 30:
+        impacts.append("Land surface temperatures are elevated, which may reflect heat stress linked to low vegetation and built-up conditions.")
+    if water_occ is not None and water_occ < 5:
+        impacts.append("Visible surface water is limited, which can increase dependence on rainfall, groundwater, or external supply.")
+    if not impacts:
+        impacts.append("No single major impact signal dominates immediately, but the site should still be monitored over time for ecological change.")
+
+    trend_meanings = []
+    trend_meanings.append(f"Current vegetation condition: {fmt_num(ndvi_current, 3)}. Higher values generally suggest stronger vegetation cover.")
+    trend_meanings.append(f"Vegetation trend: {fmt_num(ndvi_trend, 3)}. Negative values suggest decline over time, while positive values suggest improvement.")
+    trend_meanings.append(f"Rainfall context: {fmt_num(rain_anom_pct, 1, '%')} versus the long-term baseline. Negative values suggest drier recent conditions.")
+    trend_meanings.append(f"Heat context: {fmt_num(lst_mean, 1, ' °C')} recent land surface temperature. Higher values can indicate greater heat pressure.")
+    trend_meanings.append(f"Forest-loss context: {fmt_num(forest_loss_pct, 1, '%')} of baseline forest. Higher values suggest greater historical tree loss in the landscape.")
+
+    if category == "Agriculture / Agribusiness":
+        business_relevance = "For an agribusiness, these trends matter because they can affect pollination, soil protection, water availability, and production resilience."
+    elif category == "Food processing / Supply chain":
+        business_relevance = "For a food or supply-chain business, these trends matter because ecological decline in sourcing landscapes can affect input reliability, quality, and cost."
+    elif category == "Manufacturing / Industrial":
+        business_relevance = "For a manufacturing or industrial site, these trends matter because heat, water stress, and ecosystem decline can affect site resilience, worker conditions, and compliance expectations."
+    elif category == "Water / Circular economy":
+        business_relevance = "For a water or circular-economy business, these trends matter because they shape catchment condition, water security, and the long-term sustainability case for operations."
+    elif category == "Energy / Infrastructure":
+        business_relevance = "For energy and infrastructure operations, these trends matter because changing ecological conditions can create physical, transition, and reputational risks around assets."
+    elif category == "Property / Built environment":
+        business_relevance = "For the built environment, these trends matter because vegetation decline, heat, and limited water buffering can affect comfort, runoff, and retrofit priorities."
+    else:
+        business_relevance = "These trends matter because they show how the surrounding natural system may be becoming more or less supportive of long-term business resilience."
+
+    return {
+        "narrative": narrative,
+        "dependencies": dependencies,
+        "impacts": impacts[:5],
+        "trend_meanings": trend_meanings,
+        "business_relevance": business_relevance,
+    }
+
+
 def df_chart_to_png_bytes(df, x_col, y_col, title, kind="line", x_label="Year", y_label="Value"):
     if df is None or df.empty:
         return None
@@ -807,6 +909,7 @@ if run:
             "forest_hist_df": forest_hist_df,
             "water_hist_df": water_hist_df,
             "lc_df": lc_df,
+            "evaluate": evaluate,
         }
 
     st.success("Assessment complete.")
@@ -838,8 +941,10 @@ if results is not None:
     forest_hist_df = results["forest_hist_df"]
     water_hist_df = results["water_hist_df"]
     lc_df = results["lc_df"]
+    evaluate = results.get("evaluate", build_evaluate_content(preset, category, metrics))
     overview = build_overview_content(preset, category, metrics, risk)
     locate = build_locate_content(preset, category, metrics)
+    evaluate = build_evaluate_content(preset, category, metrics)
 
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
         ["Overview", "Locate", "Evaluate", "Assess", "Prepare", "Images", "Trends", "Detailed Results"]
@@ -907,12 +1012,22 @@ if results is not None:
 
     with tab3:
         st.markdown("## Evaluate")
-        st.write("Current and historical environmental conditions have been reviewed using the dashboard indicators.")
-        st.write(f"Current NDVI: {fmt_num(metrics.get('ndvi_current'), 3)}")
-        st.write(f"Historical NDVI trend: {fmt_num(metrics.get('ndvi_trend'), 3)}")
-        st.write(f"Rainfall anomaly: {fmt_num(metrics.get('rain_anom_pct'), 1, '%')}")
-        st.write(f"Recent LST mean: {fmt_num(metrics.get('lst_mean'), 1, ' °C')}")
-        st.write(f"Forest loss % of baseline forest: {fmt_num(metrics.get('forest_loss_pct'), 1, '%')}")
+        st.write(evaluate["narrative"])
+
+        st.markdown("### Dependencies on nature")
+        for item in evaluate["dependencies"]:
+            st.write(f"• {item}")
+
+        st.markdown("### Impacts and pressures visible in the landscape")
+        for item in evaluate["impacts"]:
+            st.write(f"• {item}")
+
+        st.markdown("### What the indicators mean")
+        for item in evaluate["trend_meanings"]:
+            st.write(f"• {item}")
+
+        st.markdown("### Why this matters to the business")
+        st.write(evaluate["business_relevance"])
 
     with tab4:
         st.markdown("## Assess")
