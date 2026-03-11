@@ -241,6 +241,86 @@ def fmt_num(val, digits=1, suffix=""):
         return "—"
 
 
+def build_overview_content(preset: str, category: str, metrics: dict, risk: dict) -> dict:
+    ndvi_current = metrics.get("ndvi_current")
+    ndvi_trend = metrics.get("ndvi_trend")
+    rain_anom_pct = metrics.get("rain_anom_pct")
+    tree_pct = metrics.get("tree_pct")
+    built_pct = metrics.get("built_pct")
+    water_occ = metrics.get("water_occ")
+    forest_loss_pct = metrics.get("forest_loss_pct")
+    lst_mean = metrics.get("lst_mean")
+
+    narrative = (
+        "This overview screens how the selected site interacts with nature and highlights the main "
+        "conditions and trends a business should pay attention to first. It is designed as an early "
+        "screening output, not a substitute for detailed field assessment."
+    )
+
+    findings = []
+    if ndvi_trend is not None and ndvi_trend < -0.03:
+        findings.append("Vegetation condition around the site has been declining over time.")
+    if rain_anom_pct is not None and rain_anom_pct < -10:
+        findings.append("Recent rainfall is below the long-term baseline, which may increase water stress.")
+    if forest_loss_pct is not None and forest_loss_pct > 5:
+        findings.append("Tree loss has been detected in the surrounding landscape.")
+    if water_occ is not None and water_occ < 5:
+        findings.append("Visible surface water is limited in the surrounding landscape.")
+    if built_pct is not None and built_pct > 35:
+        findings.append("A large share of the area is built-up, which can increase heat and reduce ecological function.")
+    if tree_pct is not None and tree_pct < 10:
+        findings.append("Tree cover is limited, which may reduce natural buffering and resilience.")
+    if lst_mean is not None and lst_mean > 30:
+        findings.append("Land surface temperatures are high, which may increase operational heat stress.")
+
+    if not findings:
+        findings.append("No major warning signal stands out immediately, but the site should still be monitored over time.")
+
+    findings = findings[:3]
+
+    if category == "Agriculture / Agribusiness":
+        business_relevance = (
+            "For an agribusiness, these conditions matter because vegetation, rainfall, tree cover, and water "
+            "availability can influence productivity, soil protection, pollination, and resilience."
+        )
+    elif category == "Food processing / Supply chain":
+        business_relevance = (
+            "For a food or supply-chain business, these conditions matter because environmental pressure in "
+            "sourcing landscapes can affect supply reliability, quality, and climate resilience."
+        )
+    elif category == "Manufacturing / Industrial":
+        business_relevance = (
+            "For a manufacturing or industrial site, these conditions matter because heat, low vegetation, and "
+            "land-cover pressure can affect worker comfort, site resilience, and future compliance expectations."
+        )
+    elif category == "Water / Circular economy":
+        business_relevance = (
+            "For a water or circular-economy business, these conditions matter because local water context, heat, "
+            "and ecological condition can affect water security and operational resilience."
+        )
+    elif category == "Energy / Infrastructure":
+        business_relevance = (
+            "For energy or infrastructure operations, these conditions matter because site expansion, ecological "
+            "sensitivity, and surrounding land-cover change can create environmental and transition risks."
+        )
+    elif category == "Property / Built environment":
+        business_relevance = (
+            "For a built-environment or property site, these conditions matter because low vegetation, heat, and "
+            "built-up intensity can affect site quality, comfort, and future retrofit needs."
+        )
+    else:
+        business_relevance = (
+            "These conditions matter because they provide an early view of how the site depends on and may be "
+            "affected by surrounding ecological change."
+        )
+
+    return {
+        "narrative": narrative,
+        "findings": findings,
+        "business_relevance": business_relevance,
+    }
+
+
 def df_chart_to_png_bytes(df, x_col, y_col, title, kind="line", x_label="Year", y_label="Value"):
     if df is None or df.empty:
         return None
@@ -691,6 +771,7 @@ if results is not None:
     forest_hist_df = results["forest_hist_df"]
     water_hist_df = results["water_hist_df"]
     lc_df = results["lc_df"]
+    overview = build_overview_content(preset, category, metrics, risk)
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         ["Overview", "LEAP", "Images", "Trends", "Detailed Results"]
@@ -700,22 +781,30 @@ if results is not None:
         st.markdown("## EagleNatureInsight Overview")
         st.write(f"**Business preset:** {preset}")
         st.write(f"**Business category:** {category}")
+        st.write(overview["narrative"])
 
         r1c1, r1c2, r1c3 = st.columns(3)
         with r1c1:
-            metric_card("Nature Risk", f'{risk["score"]}/100', risk["band"])
+            metric_card("Area analysed", fmt_num(metrics.get("area_ha"), 1, " ha"), "Assessment area")
         with r1c2:
-            metric_card("Current NDVI", fmt_num(metrics.get("ndvi_current"), 3), "Sentinel-2")
+            metric_card("Current vegetation", fmt_num(metrics.get("ndvi_current"), 3), "NDVI")
         with r1c3:
-            metric_card("Rainfall Anomaly", fmt_num(metrics.get("rain_anom_pct"), 1, "%"), "vs 1981–2010")
+            metric_card("Vegetation trend", fmt_num(metrics.get("ndvi_trend"), 3), "Historical change")
 
         r2c1, r2c2, r2c3 = st.columns(3)
         with r2c1:
-            metric_card("Tree Cover", fmt_num(metrics.get("tree_pct"), 1, "%"), "Current")
+            metric_card("Rainfall context", fmt_num(metrics.get("rain_anom_pct"), 1, "%"), "vs 1981–2010")
         with r2c2:
-            metric_card("Built-up", fmt_num(metrics.get("built_pct"), 1, "%"), "Current")
+            metric_card("Tree cover", fmt_num(metrics.get("tree_pct"), 1, "%"), "Current landscape")
         with r2c3:
-            metric_card("Surface Water", fmt_num(metrics.get("water_occ"), 1), "Occurrence")
+            metric_card("Surface water", fmt_num(metrics.get("water_occ"), 1), "Occurrence")
+
+        st.markdown("### Top findings")
+        for finding in overview["findings"]:
+            st.write(f"• {finding}")
+
+        st.markdown("### Why this matters to the business")
+        st.write(overview["business_relevance"])
 
     with tab2:
         st.markdown("## LEAP outputs")
@@ -828,3 +917,4 @@ if results is not None:
         if not lc_df.empty:
             fig = build_landcover_bar(lc_df)
             st.plotly_chart(fig, use_container_width=True)
+
