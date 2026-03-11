@@ -388,104 +388,6 @@ def build_locate_content(preset: str, category: str, metrics: dict) -> dict:
     }
 
 
-
-
-def build_evaluate_content(preset: str, category: str, metrics: dict) -> dict:
-    dependencies = []
-    impacts = []
-    signals = []
-
-    if category == "Agriculture / Agribusiness":
-        dependencies = [
-            "The business is likely to depend on vegetation health, rainfall reliability, soil condition, and ecological functions such as pollination.",
-            "Tree cover and surrounding habitat can support shade, wind protection, water regulation, and biodiversity that benefit production landscapes.",
-        ]
-    elif category == "Food processing / Supply chain":
-        dependencies = [
-            "The business is likely to depend on stable agricultural sourcing landscapes, water availability, and ecosystem condition in supplier areas.",
-            "Environmental decline in production landscapes can affect supply reliability, quality, and cost over time.",
-        ]
-    elif category == "Manufacturing / Industrial":
-        dependencies = [
-            "The business is likely to depend on water availability, stable site conditions, and local ecosystem functions that reduce heat and runoff pressure.",
-            "Surrounding vegetation and water context can influence worker comfort, site resilience, and future operating conditions.",
-        ]
-    elif category == "Water / Circular economy":
-        dependencies = [
-            "The business is likely to depend on reliable water availability, catchment health, and surrounding ecological condition.",
-            "Vegetation and land cover influence water retention, runoff, and local water quality context.",
-        ]
-    elif category == "Energy / Infrastructure":
-        dependencies = [
-            "The business is likely to depend on stable land conditions, water context, and ecological sensitivity being understood before expansion or maintenance decisions.",
-            "Surrounding habitats and land-cover patterns influence environmental constraints and resilience planning.",
-        ]
-    elif category == "Property / Built environment":
-        dependencies = [
-            "The business is likely to depend on ecosystem functions such as cooling, runoff regulation, and landscape quality.",
-            "Vegetation and water context can influence comfort, flood resilience, and long-term site attractiveness.",
-        ]
-    else:
-        dependencies = [
-            "The business is likely to depend on local ecosystem condition, water context, and surrounding land stability in ways that affect operations over time.",
-            "Understanding these dependencies early helps the business identify where nature-related risks may emerge.",
-        ]
-
-    ndvi_trend = metrics.get("ndvi_trend")
-    rain_anom = metrics.get("rain_anom_pct")
-    forest_loss = metrics.get("forest_loss_pct")
-    lst_mean = metrics.get("lst_mean")
-    water_occ = metrics.get("water_occ")
-    built_pct = metrics.get("built_pct")
-
-    if ndvi_trend is not None and ndvi_trend < -0.03:
-        impacts.append("Vegetation condition has been declining, which may suggest ecological stress or landscape degradation around the site.")
-        signals.append("A declining vegetation trend suggests reduced ecological resilience if the pattern continues.")
-    elif ndvi_trend is not None:
-        signals.append("Vegetation trend does not currently indicate a major decline, but should still be monitored over time.")
-
-    if rain_anom is not None and rain_anom < -10:
-        impacts.append("Recent rainfall is below the long-term baseline, which may increase pressure on water availability and ecosystem condition.")
-        signals.append("Below-baseline rainfall suggests the business may need to pay closer attention to water resilience.")
-
-    if forest_loss is not None and forest_loss > 5:
-        impacts.append("Forest loss has been detected in the assessed landscape, which may indicate habitat pressure and declining ecosystem integrity.")
-        signals.append("Tree loss can weaken ecosystem services such as shade, habitat support, and water regulation.")
-
-    if lst_mean is not None and lst_mean > 30:
-        impacts.append("High land surface temperatures suggest heat pressure, which may affect ecological condition and business operations.")
-        signals.append("Higher surface temperatures often occur alongside low vegetation cover and more exposed or built surfaces.")
-
-    if water_occ is not None and water_occ < 5:
-        impacts.append("Visible surface water is limited, which may indicate stronger dependence on rainfall, groundwater, or external supply systems.")
-        signals.append("Limited visible water suggests the business should pay attention to water security and efficiency.")
-
-    if built_pct is not None and built_pct > 30:
-        impacts.append("Built-up intensity is high, which may increase runoff, heat, and pressure on surrounding ecological functions.")
-        signals.append("A more built landscape can reduce the natural buffering capacity of the site.")
-
-    if not impacts:
-        impacts.append("No strong impact signal stands out immediately, but the site should still be monitored as conditions change over time.")
-    if not signals:
-        signals.append("The current indicators provide a starting point for understanding dependencies and impacts, but field validation may still be useful.")
-
-    why_it_matters = (
-        "This section matters because businesses are affected not only by what is happening on-site, but also by what is happening in the surrounding landscape. "
-        "Trends in vegetation, water, heat, and forest cover can influence costs, resilience, compliance expectations, and long-term business performance."
-    )
-
-    return {
-        "narrative": (
-            "This section reviews the main environmental signals around the site to understand likely dependencies on nature and possible impacts on nature. "
-            "It translates the indicators into plain-language meaning for a non-expert user."
-        ),
-        "dependencies": dependencies[:3],
-        "impacts": impacts[:4],
-        "signals": signals[:4],
-        "why_it_matters": why_it_matters,
-    }
-
-
 def df_chart_to_png_bytes(df, x_col, y_col, title, kind="line", x_label="Year", y_label="Value"):
     if df is None or df.empty:
         return None
@@ -938,7 +840,6 @@ if results is not None:
     lc_df = results["lc_df"]
     overview = build_overview_content(preset, category, metrics, risk)
     locate = build_locate_content(preset, category, metrics)
-    evaluate = build_evaluate_content(preset, category, metrics)
 
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
         ["Overview", "Locate", "Evaluate", "Assess", "Prepare", "Images", "Trends", "Detailed Results"]
@@ -1001,43 +902,17 @@ if results is not None:
         st.markdown("### Current land-cover composition")
         if not lc_df.empty:
             fig = build_landcover_bar(lc_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="overview_landcover_chart")
             st.caption("This chart shows how the selected area is currently divided across land-cover classes such as tree cover, cropland, built-up land, and water.")
 
     with tab3:
         st.markdown("## Evaluate")
-        st.write(evaluate["narrative"])
-
-        e1, e2, e3 = st.columns(3)
-        with e1:
-            metric_card("Current vegetation", fmt_num(metrics.get("ndvi_current"), 3), "NDVI")
-        with e2:
-            metric_card("Vegetation trend", fmt_num(metrics.get("ndvi_trend"), 3), "Historical change")
-        with e3:
-            metric_card("Rainfall context", fmt_num(metrics.get("rain_anom_pct"), 1, "%"), "vs 1981–2010")
-
-        e4, e5, e6 = st.columns(3)
-        with e4:
-            metric_card("Heat context", fmt_num(metrics.get("lst_mean"), 1, " °C"), "Recent LST mean")
-        with e5:
-            metric_card("Forest-loss signal", fmt_num(metrics.get("forest_loss_pct"), 1, "%"), "% of baseline forest")
-        with e6:
-            metric_card("Water context", fmt_num(metrics.get("water_occ"), 1), "Surface water occurrence")
-
-        st.markdown("### Dependencies on nature")
-        for item in evaluate["dependencies"]:
-            st.write(f"• {item}")
-
-        st.markdown("### Possible impacts and pressures")
-        for item in evaluate["impacts"]:
-            st.write(f"• {item}")
-
-        st.markdown("### What the indicators are suggesting")
-        for item in evaluate["signals"]:
-            st.write(f"• {item}")
-
-        st.markdown("### Why this matters")
-        st.write(evaluate["why_it_matters"])
+        st.write("Current and historical environmental conditions have been reviewed using the dashboard indicators.")
+        st.write(f"Current NDVI: {fmt_num(metrics.get('ndvi_current'), 3)}")
+        st.write(f"Historical NDVI trend: {fmt_num(metrics.get('ndvi_trend'), 3)}")
+        st.write(f"Rainfall anomaly: {fmt_num(metrics.get('rain_anom_pct'), 1, '%')}")
+        st.write(f"Recent LST mean: {fmt_num(metrics.get('lst_mean'), 1, ' °C')}")
+        st.write(f"Forest loss % of baseline forest: {fmt_num(metrics.get('forest_loss_pct'), 1, '%')}")
 
     with tab4:
         st.markdown("## Assess")
@@ -1077,19 +952,19 @@ if results is not None:
 
         if not ndvi_hist_df.empty:
             fig = px.line(ndvi_hist_df, x="year", y="value", title="Historical NDVI (Landsat)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="trends_ndvi_chart")
         if not rain_hist_df.empty:
             fig = px.line(rain_hist_df, x="year", y="value", title="Historical Rainfall (CHIRPS)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="trends_rain_chart")
         if not lst_hist_df.empty:
             fig = px.line(lst_hist_df, x="year", y="value", title="Historical Land Surface Temperature (MODIS)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="trends_lst_chart")
         if not forest_hist_df.empty:
             fig = px.bar(forest_hist_df, x="year", y="value", title="Historical Forest Loss by Year (Hansen)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="trends_forest_chart")
         if not water_hist_df.empty:
             fig = px.line(water_hist_df, x="year", y="value", title="Historical Water Presence (JRC)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="trends_water_chart")
 
     with tab8:
         st.markdown("## Detailed results")
@@ -1132,4 +1007,4 @@ if results is not None:
 
         if not lc_df.empty:
             fig = build_landcover_bar(lc_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="details_landcover_chart")
